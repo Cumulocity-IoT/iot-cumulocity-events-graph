@@ -1,0 +1,105 @@
+{
+  "name": "events-graph-package",
+  "version": "2.0.0",
+  "description": "",
+  "scripts": {
+    "start": "c8ycli server -p 9024 -u https://govsolutions-ria.us.cumulocity.com/ --shell cockpit-1017",
+    "build": "c8ycli build",
+    "zip": "zip -r -q ./sag-ps-iot-pkg-events-graph.zip ./dist/apps/sag-ps-iot-pkg-events-graph/*",
+    "deploy": "c8ycli deploy",
+    "locale-extract": "c8ycli locale-extract",
+    "lint": "eslint . --ext js,ts --quiet",
+    "format": "eslint . --ext js,ts --quiet --fix",
+    "build:ci": "npm run build -- --ci",
+    "postinstall": "ngcc"
+  },
+  "keywords": [
+    "Cumulocity",
+    "Plugin",
+    "Event",
+    "Graph",
+    "widget"
+  ],
+  "author": "Hendrik Naether",
+  "license": "Apache 2.0",
+  "dependencies": {
+    "@angular/animations": "14.0.6",
+    "@angular/cdk": "14.1.2",
+    "@angular/common": "14.0.6",
+    "@angular/compiler": "14.0.6",
+    "@angular/core": "14.0.6",
+    "@angular/forms": "14.0.6",
+    "@angular/platform-browser": "14.0.6",
+    "@angular/platform-browser-dynamic": "14.0.6",
+    "@angular/router": "14.0.6",
+    "@angular/upgrade": "14.0.6",
+    "@c8y/client": "1017.0.267",
+    "@c8y/ngx-components": "1017.0.267",
+    "@c8y/style": "1017.0.267",
+    "@ngx-translate/core": "14.0.0",
+    "@types/lodash": "^4.14.194",
+    "date-fns": "^2.30.0",
+    "echarts": "^5.4.2",
+    "ngx-bootstrap": "9.0.0",
+    "ngx-color-picker": "^12.0.0",
+    "ngx-echarts": "^7.1.0",
+    "rxjs": "~6.6.3",
+    "zone.js": "~0.11.7"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "14.0.6",
+    "@angular/compiler-cli": "14.0.6",
+    "@angular/language-service": "14.0.6",
+    "@angular/service-worker": "14.0.6",
+    "@angular/localize": "14.0.6",
+    "@types/jest": "^28.1.6",
+    "jest": "^28.1.3",
+    "jest-preset-angular": "^12.2.5",
+    "typescript": "4.7.4",
+    "@c8y/cli": "1017.0.267",
+    "@typescript-eslint/eslint-plugin": "^5.42.1",
+    "@typescript-eslint/parser": "^5.42.1",
+    "eslint": "^8.7.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-prettier": "^3.4.0",
+    "html-loader": "4.1.0",
+    "prettier": "^2.5.1",
+    "style-loader": "3.3.1"
+  },
+  "c8y": {
+    "application": {
+      "name": "sag-ps-iot-pkg-events-graph",
+      "contextPath": "sag-ps-iot-pkg-events-graph",
+      "key": "sag-ps-iot-pkg-events-graph-key",
+      "globalTitle": "Events graph package",
+      "tabsHorizontal": true,
+      "isPackage": true,
+      "noAppSwitcher": true,
+      "requiredPlatformVersion": "1017.0",
+      "package": "plugin",
+      "exports": [
+        {
+          "name": "Events Graph Plugin",
+          "module": "EventsGraphModule",
+          "path": "./events-graph.module.ts",
+          "description": "Display events in a timeline like chart."
+        }
+      ],
+      "remotes": {
+        "widget-plugin": [
+          "EventsGraphModule"
+        ]
+      },
+      "copy": [
+        {
+          "from": "docs",
+          "to": "docs"
+        }
+      ]
+    },
+    "cli": {}
+  },
+  "browserslist": [
+    "last 2 major versions"
+  ]
+}

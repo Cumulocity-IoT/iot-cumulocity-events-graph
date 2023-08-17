@@ -1,0 +1,59 @@
+<div class="form-group">
+    <c8y-form-group>
+      <label>Event Type</label>
+      <input
+        type="text"
+        class="form-control"
+        [(ngModel)]="config.type"
+        name="type"
+        [required]="true"
+        placeholder="e.g. Path-PathExecution"
+      />
+    </c8y-form-group>
+
+    <c8y-form-group>
+      <label>Display duration (in hours):</label>
+      <input
+        type="number"
+        class="form-control"
+        min="1"
+        max="24"
+        [(ngModel)]="config.hours"
+        name="hours"
+      />
+    </c8y-form-group>
+
+    <div *ngFor="let type of config.types; let i = index" class="d-flex">
+      <div class="form-group flex-grow-1">
+        <label>Type name:</label>
+        <input
+          type="text"
+          class="form-control"
+          [(ngModel)]="type.name"
+          placeholder="e.g. READY"
+        />
+      </div>
+      <div class="form-group flex-grow-1">
+        <label>Type color:</label>
+        <input type="color" class="form-control" [(ngModel)]="type.color" />
+      </div>
+      <div class="input-group-btn">
+        <button
+          *ngIf="config.types.length > 1"
+          (click)="removeType(i)"
+          title="Remove"
+          class="btn btn-clean text-primary"
+        >
+          <i c8yIcon="minus-circle" class="text-danger"></i>
+        </button>
+        <button
+          *ngIf="i === config.types.length - 1"
+          (click)="addType()"
+          title="Add"
+          class="btn btn-clean text-primary"
+        >
+          <i class="dlt-c8y-icon-plus-circle"></i>
+        </button>
+      </div>
+    </div>
+  </div>
