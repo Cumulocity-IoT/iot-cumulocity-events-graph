@@ -3,7 +3,6 @@
 ## Events Graph widget plugin
 Show event occurence in a timeline chart, using echarts profiling example approach (see https://echarts.apache.org/examples/en/editor.html?c=custom-profile). For the different texts a color can be chosen. (Currently only works in a device dashboard!)
 
-
 ## Features
 Shows "duration" of every event by assuming that a state is finished once the next state starts - an event always ends with the submission of the next event. The chart shows a view of the past x hours and helps visualizing the state changes for a specific event type. 
 
@@ -25,8 +24,8 @@ Interactive legend
 ![alt Show legend interaction](/docs/legend-example.gif)
 
 ## Limitations
-* only works for device dashboards
-* only works for single event type, showing the different event texts
+* only works for single devices
+* only works for single event type, visualising the different event texts as bars
 * no realtime
 * no dashboard date integration
 
