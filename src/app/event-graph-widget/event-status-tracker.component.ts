@@ -6,13 +6,7 @@ import { has } from 'lodash';
 import { ExternalIdService } from './external-id.service';
 import { EventStatusTrackerService, IEventDuration } from './event-status-tracker.service';
 import { formatDistance, subHours } from 'date-fns';
-
-export type EventStatusTrackerConfig = {
-  type: string;
-  device: { id: string; name: string };
-  types?: { name: string; color: string }[];
-  hours?: number;
-};
+import { EventStatusTrackerConfig } from '../model/event-status-tracker';
 
 @Component({
   selector: 'app-event-status',
@@ -61,8 +55,11 @@ export class EventStatusTrackerComponent implements OnInit {
         const custom = this.eventStatusService.toCustomFormat(
           categories.indexOf(idOrName),
           timeBoxStart,
-          withDuration
+          withDuration,
+          this.config.types || []
         );
+
+        console.log('custom', custom);
 
         const renderItem = (
           params: echarts.CustomSeriesRenderItemParams,
@@ -99,7 +96,7 @@ export class EventStatusTrackerComponent implements OnInit {
         const types = this.config.types || [];
         // @ts-ignore
         this.series = this.eventStatusService.toSeries(custom, <any>renderItem, types);
-
+        console.log('series', this.series);
         this.chartOptions = {
           tooltip: {
             formatter: (item: echarts.DefaultLabelFormatterCallbackParams) => {

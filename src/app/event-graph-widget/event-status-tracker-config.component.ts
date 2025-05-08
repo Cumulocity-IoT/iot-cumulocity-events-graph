@@ -1,12 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { AlertService, DynamicComponent, OnBeforeSave } from '@c8y/ngx-components';
+import { EventStatusTrackerConfig } from '../model/event-status-tracker';
 
-export type EventStatusTrackerConfig = {
-  type?: string;
-  device?: { id: string; name: string };
-  types?: { name: string; color: string }[];
-  hours?: number;
-};
 @Component({
   selector: 'event-status',
   templateUrl: './event-status-tracker-config.component.html',
@@ -27,18 +22,18 @@ export type EventStatusTrackerConfig = {
   ],
 })
 export class EventStatusTrackerWidgetConfig implements DynamicComponent, OnBeforeSave {
-  @Input() config: EventStatusTrackerConfig = {};
+  @Input() config: EventStatusTrackerConfig;
 
   constructor(private alert: AlertService) {}
 
   ngOnInit() {
     if (!this.config.types) {
-      this.config.types = [{ name: '', color: '#000000' }];
+      this.config.types = [{ name: '', color: '#000000', label: '' }];
     }
   }
 
   addType() {
-    this.config.types?.push({ name: '', color: '#000000' });
+    this.config.types?.push({ name: '', color: '#000000', label: '' });
   }
 
   removeType(index: number) {

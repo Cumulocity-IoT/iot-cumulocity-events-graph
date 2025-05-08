@@ -11,9 +11,9 @@ import { ContextWidgetConfig } from '@c8y/ngx-components/context-dashboard';
 import { ModalModule } from 'ngx-bootstrap/modal';
 import { TooltipModule } from 'ngx-bootstrap/tooltip';
 import { NgxEchartsModule } from 'ngx-echarts';
-import { EventStatusTrackerWidgetConfig } from './events-graph/event-status-tracker-config.component';
-import { EventStatusTrackerComponent } from './events-graph/event-status-tracker.component';
-import { EventStatusTrackerService } from './events-graph/event-status-tracker.service';
+import { EventStatusTrackerComponent } from './event-status-tracker.component';
+import { EventStatusTrackerWidgetConfig } from './event-status-tracker-config.component';
+import { EventStatusTrackerService } from './event-status-tracker.service';
 
 @NgModule({
   imports: [
@@ -31,7 +31,6 @@ import { EventStatusTrackerService } from './events-graph/event-status-tracker.s
     }),
   ],
   declarations: [EventStatusTrackerComponent, EventStatusTrackerWidgetConfig],
-  entryComponents: [EventStatusTrackerComponent, EventStatusTrackerWidgetConfig],
   providers: [
     EventStatusTrackerService,
     {
@@ -44,7 +43,7 @@ import { EventStatusTrackerService } from './events-graph/event-status-tracker.s
           description: 'Show event occurence in a timeline chart.',
           component: EventStatusTrackerComponent,
           configComponent: EventStatusTrackerWidgetConfig,
-          previewImage: require('./docs/preview.png'),
+          previewImage: require('../../../docs/preview.png'),
           data: {
             settings: {
               noNewWidgets: false, // Set this to true, to don't allow adding new widgets.

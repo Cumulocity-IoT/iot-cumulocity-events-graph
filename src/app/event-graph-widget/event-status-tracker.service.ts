@@ -3,6 +3,7 @@ import { EventService, IEvent } from '@c8y/client';
 import { subHours } from 'date-fns';
 import { CustomSeriesRenderItem } from 'echarts';
 import { groupBy, isEmpty } from 'lodash';
+import { EventConfig } from '../model/event-status-tracker';
 
 export interface IEventDuration extends IEvent {
   /**
@@ -73,16 +74,24 @@ export class EventStatusTrackerService {
     return update;
   }
 
-  toCustomFormat(categoryIndex: number, timeBoxStart: number, events: IEventDuration[]) {
+  toCustomFormat(
+    categoryIndex: number,
+    timeBoxStart: number,
+    events: IEventDuration[],
+    types: EventConfig[]
+  ) {
     let baseTime = timeBoxStart;
     const seriesData = events.map((event) => {
+      const eventConfig = types.find((type) => type.name === event.text);
+      console.log('event', event);
+      console.log('eventConfig', eventConfig);
       const duration = (event.duration ?? 0) * 1000;
       return {
-        name: event.text,
+        name: eventConfig?.label ? eventConfig.label : event.text,
         value: [categoryIndex, baseTime, (baseTime += duration), duration],
-        // itemStyle: {
-        //   color: color,
-        // },
+        itemStyle: {
+          color: eventConfig?.color,
+        },
       };
     });
     return seriesData;
@@ -97,18 +106,19 @@ export class EventStatusTrackerService {
       // };
     }[],
     renderItem: CustomSeriesRenderItem,
-    types: { name: string; color: string }[]
+    types: EventConfig[]
   ) {
     const groups = groupBy(data, 'name');
     const names = Object.keys(groups);
-
+    console.log('groups', groups);
+    console.log('names', names);
     return names.map((name) => ({
       type: 'custom',
       name,
       renderItem: <any>renderItem,
       itemStyle: {
         opacity: 0.9,
-        color: types.find((type) => type.name === name)?.color ?? null,
+        color: types.find((type) => type.name === name || type.label === name)?.color ?? null,
       },
       encode: {
         x: [1, 2],
