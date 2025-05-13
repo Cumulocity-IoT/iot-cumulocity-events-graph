@@ -3,7 +3,6 @@ import { DatePipe } from '@c8y/ngx-components';
 import * as echarts from 'echarts';
 import { EChartsOption } from 'echarts';
 import { has } from 'lodash';
-import { ExternalIdService } from './external-id.service';
 import { EventStatusTrackerService, IEventDuration } from './event-status-tracker.service';
 import { formatDistance, subHours } from 'date-fns';
 import { EventStatusTrackerConfig } from '../model/event-status-tracker';
@@ -26,76 +25,24 @@ export class EventStatusTrackerComponent implements OnInit {
     encode: { x: number[]; y: number };
     data: { name: string; value: number[] }[];
   }[];
-  constructor(
-    private eventStatusService: EventStatusTrackerService,
-    private extId: ExternalIdService,
-    private date: DatePipe
-  ) {}
+  constructor(private eventStatusService: EventStatusTrackerService, private date: DatePipe) {}
 
   async ngOnInit() {
     const now = new Date();
     const start = subHours(now, this.config.hours || 4);
     const timeBoxStart = Date.parse(start.toISOString());
     const timeBoxEnd = Date.parse(now.toISOString());
+    this.series = [];
 
     if (has(this.config, 'device')) {
-      const deviceId = this.config.device.id;
       try {
-        const events = await this.eventStatusService.fetchEvents(
-          start,
-          now,
-          deviceId,
-          this.config.type
-        );
-        const withDuration = this.eventStatusService.convert(timeBoxStart, timeBoxEnd, events);
-        const idOrName =
-          (await this.extId.getExternalIdForDevice(deviceId)) || this.config.device.name;
-
-        const categories = [idOrName];
-        const custom = this.eventStatusService.toCustomFormat(
-          categories.indexOf(idOrName),
-          timeBoxStart,
-          withDuration,
-          this.config.types || []
-        );
-
-        console.log('custom', custom);
-
-        const renderItem = (
-          params: echarts.CustomSeriesRenderItemParams,
-          api: echarts.CustomSeriesRenderItemAPI
-        ) => {
-          const categoryIndex = api.value(0);
-          const start = api.coord([api.value(1), categoryIndex]);
-          const end = api.coord([api.value(2), categoryIndex]);
-          // @ts-ignore
-          const height = api.size([0, 1])[1] * 0.2;
-          const rectShape = echarts.graphic.clipRectByRect(
-            {
-              x: start[0],
-              y: start[1] - height / 2,
-              width: end[0] - start[0],
-              height: height,
-            },
-            {
-              x: (<any>params.coordSys).x,
-              y: (<any>params.coordSys).y,
-              width: (<any>params.coordSys).width,
-              height: (<any>params.coordSys).height,
-            }
-          );
-          return (
-            rectShape && {
-              type: 'rect',
-              transition: ['shape'],
-              shape: rectShape,
-              style: api.style(),
-            }
-          );
-        };
-        const types = this.config.types || [];
+        const categories: string[] = [];
+        this.config.types.forEach((type) => {
+          categories.push(type.type);
+        });
         // @ts-ignore
-        this.series = this.eventStatusService.toSeries(custom, <any>renderItem, types);
+        this.series = await this.prepareChartData(now, start, timeBoxStart, timeBoxEnd);
+
         console.log('series', this.series);
         this.chartOptions = {
           tooltip: {
@@ -152,4 +99,57 @@ export class EventStatusTrackerComponent implements OnInit {
       }
     }
   }
+
+  async prepareChartData(now: Date, start: Date, timeBoxStart: number, timeBoxEnd: number) {
+    const series = [];
+    for (const [index, type] of this.config.types.entries()) {
+      console.log('Index:', index);
+      const custom = await this.eventStatusService.fetchAndPrepareEvents(
+        start,
+        now,
+        this.config.device.id,
+        type,
+        index,
+        timeBoxStart,
+        timeBoxEnd
+      );
+
+      // @ts-ignore
+      series.push(...this.eventStatusService.toSeries(custom, this.renderItem, type.values));
+    }
+    return series;
+  }
+
+  renderItem = (
+    params: echarts.CustomSeriesRenderItemParams,
+    api: echarts.CustomSeriesRenderItemAPI
+  ) => {
+    const categoryIndex = api.value(0);
+    const start = api.coord([api.value(1), categoryIndex]);
+    const end = api.coord([api.value(2), categoryIndex]);
+    // @ts-ignore
+    const height = api.size([0, 1])[1] * 0.2;
+    const rectShape = echarts.graphic.clipRectByRect(
+      {
+        x: start[0],
+        y: start[1] - height / 2,
+        width: end[0] - start[0],
+        height: height,
+      },
+      {
+        x: (<any>params.coordSys).x,
+        y: (<any>params.coordSys).y,
+        width: (<any>params.coordSys).width,
+        height: (<any>params.coordSys).height,
+      }
+    );
+    return (
+      rectShape && {
+        type: 'rect',
+        transition: ['shape'],
+        shape: rectShape,
+        style: api.style(),
+      }
+    );
+  };
 }

@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { AlertService, DynamicComponent, OnBeforeSave } from '@c8y/ngx-components';
+import { DynamicComponent } from '@c8y/ngx-components';
 import { EventStatusTrackerConfig } from '../model/event-status-tracker';
 
 @Component({
@@ -11,6 +11,22 @@ import { EventStatusTrackerConfig } from '../model/event-status-tracker';
         display: flex;
         align-items: center;
       }
+      .egw-card-header {
+        display: block;
+      }
+      .event-type-del {
+        float: right;
+        padding-top: 25px;
+        font-size: 22px;
+      }
+      .event-value-add {
+        font-size: 16px;
+        margin-top: 15px;
+      }
+      .event-value-del {
+        font-size: 16px;
+        margin-top: 20px;
+      }
       .form-group {
         margin-right: 10px;
       }
@@ -21,30 +37,31 @@ import { EventStatusTrackerConfig } from '../model/event-status-tracker';
     `,
   ],
 })
-export class EventStatusTrackerWidgetConfig implements DynamicComponent, OnBeforeSave {
+export class EventStatusTrackerWidgetConfig implements DynamicComponent {
   @Input() config: EventStatusTrackerConfig;
-
-  constructor(private alert: AlertService) {}
 
   ngOnInit() {
     if (!this.config.types) {
-      this.config.types = [{ name: '', color: '#000000', label: '' }];
+      this.config.types = [];
     }
   }
 
-  addType() {
-    this.config.types?.push({ name: '', color: '#000000', label: '' });
+  addEventType() {
+    this.config.types.push({
+      type: '',
+      values: [{ name: '', color: '#000000', label: '' }],
+    });
   }
 
-  removeType(index: number) {
-    this.config.types?.splice(index, 1);
+  removeEventType(index: number) {
+    this.config.types.splice(index, 1);
   }
 
-  onBeforeSave(config: EventStatusTrackerConfig): boolean {
-    if (config.type?.trim() === '') {
-      this.alert.warning('Please enter a valid text.');
-      return false;
-    }
-    return true;
+  addValue(typeIndex: number) {
+    this.config.types[typeIndex].values.push({ name: '', color: '#000000', label: '' });
+  }
+
+  removeValue(typeIndex: number, valueIndex: number) {
+    this.config.types[typeIndex].values.splice(valueIndex, 1);
   }
 }

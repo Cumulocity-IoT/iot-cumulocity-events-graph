@@ -3,7 +3,7 @@ import { EventService, IEvent } from '@c8y/client';
 import { subHours } from 'date-fns';
 import { CustomSeriesRenderItem } from 'echarts';
 import { groupBy, isEmpty } from 'lodash';
-import { EventConfig } from '../model/event-status-tracker';
+import { EventConfig, EventTypeConfig } from '../model/event-status-tracker';
 
 export interface IEventDuration extends IEvent {
   /**
@@ -14,6 +14,22 @@ export interface IEventDuration extends IEvent {
 @Injectable()
 export class EventStatusTrackerService {
   constructor(private eventService: EventService) {}
+
+  async fetchAndPrepareEvents(
+    start: Date,
+    now: Date,
+    deviceId: string,
+    type: EventTypeConfig,
+    index: number,
+    timeBoxStart: number,
+    timeBoxEnd: number
+  ) {
+    const events = await this.fetchEvents(start, now, deviceId, type.type);
+    console.log('events', events);
+    const withDuration = this.convert(timeBoxStart, timeBoxEnd, events);
+
+    return this.toCustomFormat(index, timeBoxStart, withDuration, type.values);
+  }
 
   async fetchEvents(
     startDate: Date,
@@ -83,8 +99,6 @@ export class EventStatusTrackerService {
     let baseTime = timeBoxStart;
     const seriesData = events.map((event) => {
       const eventConfig = types.find((type) => type.name === event.text);
-      console.log('event', event);
-      console.log('eventConfig', eventConfig);
       const duration = (event.duration ?? 0) * 1000;
       return {
         name: eventConfig?.label ? eventConfig.label : event.text,
@@ -101,17 +115,15 @@ export class EventStatusTrackerService {
     data: {
       name: string;
       value: number[];
-      // itemStyle: {
-      //   color: string;
-      // };
+      itemStyle: {
+        color: string;
+      };
     }[],
     renderItem: CustomSeriesRenderItem,
     types: EventConfig[]
   ) {
     const groups = groupBy(data, 'name');
     const names = Object.keys(groups);
-    console.log('groups', groups);
-    console.log('names', names);
     return names.map((name) => ({
       type: 'custom',
       name,
