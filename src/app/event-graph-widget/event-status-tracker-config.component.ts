@@ -44,6 +44,7 @@ export class EventStatusTrackerWidgetConfig implements DynamicComponent {
     if (!this.config.types) {
       this.config.types = [];
     }
+    this.config.realtimeInterval = this.config.realtimeInterval || 30000;
   }
 
   addEventType() {

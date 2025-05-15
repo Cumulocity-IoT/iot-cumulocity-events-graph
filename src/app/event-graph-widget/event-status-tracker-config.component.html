@@ -13,6 +13,28 @@
     />
   </c8y-form-group>
 
+  <c8y-form-group>
+    <label for="hours">Auto refresh:</label>
+
+    <label class="c8y-switch">
+      <input type="checkbox" checked="checked" [(ngModel)]="config.realtime" />
+      <span></span>
+    </label>
+
+    <label for="refresh-interval">Refresh Interval (in ms):</label>
+    <input
+      [disabled]="!config.realtime"
+      id="refresh-interval"
+      type="number"
+      class="form-control"
+      min="1000"
+      step="1000"
+      [(ngModel)]="config.realtimeInterval"
+      name="refreshInterval"
+      placeholder="Enter interval (e.g., 1000)"
+    />
+  </c8y-form-group>
+
   <div *ngFor="let eventType of config.types; let i = index" class="card">
     <div class="egw-card-header card-header separator">
       <div class="form-group row">

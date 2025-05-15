@@ -1,5 +1,5 @@
-import { Component, Input, OnInit } from '@angular/core';
-import { DatePipe } from '@c8y/ngx-components';
+import { AfterViewInit, Component, Input, OnInit, ViewChild } from '@angular/core';
+import { CountdownIntervalComponent, DatePipe } from '@c8y/ngx-components';
 import * as echarts from 'echarts';
 import { EChartsOption } from 'echarts';
 import { has } from 'lodash';
@@ -12,8 +12,11 @@ import { EventStatusTrackerConfig } from '../model/event-status-tracker';
   templateUrl: './event-status-tracker.component.html',
   styleUrls: ['./event-status-tracker.component.css'],
 })
-export class EventStatusTrackerComponent implements OnInit {
+export class EventStatusTrackerComponent implements OnInit, AfterViewInit {
   @Input() config: EventStatusTrackerConfig;
+
+  @ViewChild(CountdownIntervalComponent)
+  countdownIntervalComponent: CountdownIntervalComponent;
 
   events: IEventDuration[] = [];
   chartOptions: EChartsOption;
@@ -28,6 +31,21 @@ export class EventStatusTrackerComponent implements OnInit {
   constructor(private eventStatusService: EventStatusTrackerService, private date: DatePipe) {}
 
   async ngOnInit() {
+    this.loadChartData();
+  }
+
+  ngAfterViewInit(): void {
+    if (this.config.realtime) {
+      this.countdownIntervalComponent.start();
+    }
+  }
+
+  onCountdownEnded(): void {
+    this.loadChartData();
+    this.countdownIntervalComponent.reset();
+  }
+
+  async loadChartData() {
     const now = new Date();
     const start = subHours(now, this.config.hours || 4);
     const timeBoxStart = Date.parse(start.toISOString());
@@ -43,7 +61,6 @@ export class EventStatusTrackerComponent implements OnInit {
         // @ts-ignore
         this.series = await this.prepareChartData(now, start, timeBoxStart, timeBoxEnd);
 
-        console.log('series', this.series);
         this.chartOptions = {
           tooltip: {
             formatter: (item: echarts.DefaultLabelFormatterCallbackParams) => {
@@ -103,7 +120,6 @@ export class EventStatusTrackerComponent implements OnInit {
   async prepareChartData(now: Date, start: Date, timeBoxStart: number, timeBoxEnd: number) {
     const series = [];
     for (const [index, type] of this.config.types.entries()) {
-      console.log('Index:', index);
       const custom = await this.eventStatusService.fetchAndPrepareEvents(
         start,
         now,

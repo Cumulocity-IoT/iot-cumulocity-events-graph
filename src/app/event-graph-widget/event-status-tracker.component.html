@@ -1,2 +1,7 @@
+<c8y-countdown-interval *ngIf="config.realtime"
+  [countdownInterval]="this.config.realtimeInterval"
+  (countdownEnded)="onCountdownEnded()"
+></c8y-countdown-interval>
+
 <div echarts [options]="chartOptions" class="demo-chart"></div>
 
