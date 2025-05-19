@@ -3,6 +3,7 @@ import { EventService, IEvent } from '@c8y/client';
 import { subHours } from 'date-fns';
 import { CustomSeriesRenderItem } from 'echarts';
 import { groupBy, isEmpty } from 'lodash';
+import { EventConfig, EventTypeConfig } from '../model/event-status-tracker';
 
 export interface IEventDuration extends IEvent {
   /**
@@ -13,6 +14,22 @@ export interface IEventDuration extends IEvent {
 @Injectable()
 export class EventStatusTrackerService {
   constructor(private eventService: EventService) {}
+
+  async fetchAndPrepareEvents(
+    start: Date,
+    now: Date,
+    deviceId: string,
+    type: EventTypeConfig,
+    index: number,
+    timeBoxStart: number,
+    timeBoxEnd: number
+  ) {
+    const events = await this.fetchEvents(start, now, deviceId, type.type);
+    console.log('events', events);
+    const withDuration = this.convert(timeBoxStart, timeBoxEnd, events);
+
+    return this.toCustomFormat(index, timeBoxStart, withDuration, type.values);
+  }
 
   async fetchEvents(
     startDate: Date,
@@ -73,16 +90,22 @@ export class EventStatusTrackerService {
     return update;
   }
 
-  toCustomFormat(categoryIndex: number, timeBoxStart: number, events: IEventDuration[]) {
+  toCustomFormat(
+    categoryIndex: number,
+    timeBoxStart: number,
+    events: IEventDuration[],
+    types: EventConfig[]
+  ) {
     let baseTime = timeBoxStart;
     const seriesData = events.map((event) => {
+      const eventConfig = types.find((type) => type.name === event.text);
       const duration = (event.duration ?? 0) * 1000;
       return {
-        name: event.text,
+        name: eventConfig?.label ? eventConfig.label : event.text,
         value: [categoryIndex, baseTime, (baseTime += duration), duration],
-        // itemStyle: {
-        //   color: color,
-        // },
+        itemStyle: {
+          color: eventConfig?.color,
+        },
       };
     });
     return seriesData;
@@ -92,23 +115,22 @@ export class EventStatusTrackerService {
     data: {
       name: string;
       value: number[];
-      // itemStyle: {
-      //   color: string;
-      // };
+      itemStyle: {
+        color: string;
+      };
     }[],
     renderItem: CustomSeriesRenderItem,
-    types: { name: string; color: string }[]
+    types: EventConfig[]
   ) {
     const groups = groupBy(data, 'name');
     const names = Object.keys(groups);
-
     return names.map((name) => ({
       type: 'custom',
       name,
       renderItem: <any>renderItem,
       itemStyle: {
         opacity: 0.9,
-        color: types.find((type) => type.name === name)?.color ?? null,
+        color: types.find((type) => type.name === name || type.label === name)?.color ?? null,
       },
       encode: {
         x: [1, 2],
