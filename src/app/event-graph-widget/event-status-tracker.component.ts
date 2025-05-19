@@ -40,6 +40,11 @@ export class EventStatusTrackerComponent implements OnInit, AfterViewInit {
     }
   }
 
+  refresh(): void {
+    this.loadChartData();
+    this.countdownIntervalComponent.reset();
+  }
+
   onCountdownEnded(): void {
     this.loadChartData();
     this.countdownIntervalComponent.reset();
