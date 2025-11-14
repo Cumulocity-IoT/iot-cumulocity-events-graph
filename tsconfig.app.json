@@ -4,12 +4,10 @@
     "outDir": "./out-tsc/app",
     "noImplicitOverride": false,
     "skipLibCheck": true,
-    "strict": false
+    "strict": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "noImplicitReturns": false
   },
-  "files": [
-    "src/main.ts"
-  ],
-  "include": [
-    "src/**/*.ts"
-  ]
+  "files": ["src/main.ts"],
+  "include": ["src/**/*.ts"]
 }

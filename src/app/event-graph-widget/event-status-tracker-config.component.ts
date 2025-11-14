@@ -1,9 +1,11 @@
 import { Component, Input } from '@angular/core';
-import { DynamicComponent } from '@c8y/ngx-components';
+import { CoreModule, DynamicComponent, GlobalTimeContextWidgetConfig } from '@c8y/ngx-components';
 import { EventStatusTrackerConfig } from '../model/event-status-tracker';
 
 @Component({
   selector: 'event-status',
+  standalone: true,
+  imports: [CoreModule],
   templateUrl: './event-status-tracker-config.component.html',
   styles: [
     `
@@ -38,13 +40,19 @@ import { EventStatusTrackerConfig } from '../model/event-status-tracker';
   ],
 })
 export class EventStatusTrackerWidgetConfig implements DynamicComponent {
-  @Input() config: EventStatusTrackerConfig;
+  @Input() config: EventStatusTrackerConfig & GlobalTimeContextWidgetConfig;
 
   ngOnInit() {
     if (!this.config.types) {
       this.config.types = [];
     }
     this.config.realtimeInterval = this.config.realtimeInterval || 30000;
+
+    this.config = {
+      ...this.config,
+      widgetInstanceGlobalTimeContext: true,
+      canDecoupleGlobalTimeContext: false,
+    };
   }
 
   addEventType() {

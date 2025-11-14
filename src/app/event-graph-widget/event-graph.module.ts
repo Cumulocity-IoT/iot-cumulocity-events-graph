@@ -1,67 +1,55 @@
-import { CommonModule, CommonModule as NgCommonModule } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { NgModule } from '@angular/core';
-import { FormsModule as NgFormModule, ReactiveFormsModule } from '@angular/forms';
 import {
   CoreModule,
-  DynamicComponentDefinition,
-  DynamicFormsModule,
-  HOOK_COMPONENTS,
+  DynamicWidgetDefinition,
+  hookWidget,
+  WidgetDataType,
 } from '@c8y/ngx-components';
-import { ContextWidgetConfig } from '@c8y/ngx-components/context-dashboard';
-import { ModalModule } from 'ngx-bootstrap/modal';
-import { TooltipModule } from 'ngx-bootstrap/tooltip';
-import { NgxEchartsModule } from 'ngx-echarts';
-import { EventStatusTrackerComponent } from './event-status-tracker.component';
-import { EventStatusTrackerWidgetConfig } from './event-status-tracker-config.component';
 import { EventStatusTrackerService } from './event-status-tracker.service';
 
+async function loadViewComponent() {
+  const { EventStatusTrackerComponent } = await import('./event-status-tracker.component');
+  return EventStatusTrackerComponent;
+}
+
+async function loadConfigComponent() {
+  const { EventStatusTrackerWidgetConfig } = await import(
+    './event-status-tracker-config.component'
+  );
+  return EventStatusTrackerWidgetConfig;
+}
+
 @NgModule({
-  imports: [
-    CoreModule,
-    CommonModule,
-    ModalModule,
-    TooltipModule,
-    NgCommonModule,
-    NgFormModule,
-    ReactiveFormsModule,
-    DynamicFormsModule,
-    ModalModule.forRoot(),
-    NgxEchartsModule.forRoot({
-      echarts: () => import('echarts'),
-    }),
-  ],
-  declarations: [EventStatusTrackerComponent, EventStatusTrackerWidgetConfig],
+  imports: [CoreModule, CommonModule],
   providers: [
     EventStatusTrackerService,
-    {
-      provide: HOOK_COMPONENTS,
-      multi: true,
-      useValue: [
-        {
-          id: 'events-graph-widget',
-          label: 'Events Graph',
-          description: 'Show event occurence in a timeline chart.',
-          component: EventStatusTrackerComponent,
-          configComponent: EventStatusTrackerWidgetConfig,
-          previewImage: require('../../../docs/preview.png'),
-          data: {
-            settings: {
-              noNewWidgets: false, // Set this to true, to don't allow adding new widgets.
-              widgetDefaults: {
-                _width: 12,
-                _height: 5,
-              },
-              ng1: {
-                options: {
-                  noDeviceTarget: false, // Set this to true to hide the device selector.
-                  groupsSelectable: false, // Set this, if not only devices should be selectable.
-                },
-              },
+    hookWidget({
+      id: 'events-graph-widget',
+      label: 'Events Graph',
+      description: 'Show event occurence in a timeline chart.',
+      loadComponent: loadViewComponent,
+      loadConfigComponent: loadConfigComponent,
+      previewImage: require('../../../docs/preview.png'),
+      data: {
+        settings: {
+          noNewWidgets: false, // Set this to true, to don't allow adding new widgets.
+          widgetDefaults: {
+            _width: 12,
+            _height: 5,
+          },
+          ng1: {
+            options: {
+              noDeviceTarget: false, // Set this to true to hide the device selector.
+              groupsSelectable: true, // Set this, if not only devices should be selectable.
             },
-          } as ContextWidgetConfig,
+          },
         },
-      ] as DynamicComponentDefinition[],
-    },
+        displaySettings: {
+          globalTimeContext: true, // Set this to true, to add a global time context binding
+        },
+      } as WidgetDataType,
+    } as DynamicWidgetDefinition),
   ],
 })
 export class EventsGraphModule {}

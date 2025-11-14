@@ -9,7 +9,7 @@
       max="24"
       [(ngModel)]="config.hours"
       name="hours"
-      placeholder="Enter duration (1–24)"
+      placeholder="Enter duration (1-24)"
     />
   </c8y-form-group>
 
@@ -35,85 +35,96 @@
     />
   </c8y-form-group>
 
-  <div *ngFor="let eventType of config.types; let i = index" class="card">
-    <div class="egw-card-header card-header separator">
-      <div class="form-group row">
-        <div class="col-md-10">
-          <label for="type-{{ i }}">Event Type: </label>
-          <input
-            id="type-{{ i }}"
-            type="text"
-            class="form-control"
-            [(ngModel)]="eventType.type"
-            name="type-{{ i }}"
-            required
-            placeholder="e.g. Path-PathExecution"
-          />
-        </div>
-        <div class="col-md-2">
-          <i
-            class="event-type-del"
-            [c8yIcon]="'delete'"
-            *ngIf="config.types.length > 1"
-            (click)="removeEventType(i)"
-          ></i>
+  @for (eventType of config.types; track eventType; let i = $index) {
+    <div class="card">
+      <div class="egw-card-header card-header separator">
+        <div class="form-group row">
+          <div class="col-md-10">
+            <label for="type-{{ i }}">Event Type: </label>
+            <input
+              id="type-{{ i }}"
+              type="text"
+              class="form-control"
+              [(ngModel)]="eventType.type"
+              name="type-{{ i }}"
+              required
+              placeholder="e.g. Path-PathExecution"
+            />
+          </div>
+          <div class="col-md-2">
+            <i
+              class="event-type-del"
+              [c8yIcon]="'delete'"
+              *ngIf="config.types.length > 1"
+              (click)="removeEventType(i)"
+            ></i>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div *ngFor="let value of eventType.values; let j = index" class="card-block">
-      <div class="row">
-        <div class="col-md-4 mb-2">
-          <label for="value-name-{{ i }}-{{ j }}">Value:</label>
-          <input
-            id="value-name-{{ i }}-{{ j }}"
-            type="text"
-            class="form-control"
-            [(ngModel)]="value.name"
-            name="value-{{ i }}-{{ j }}"
-            placeholder="e.g. READY"
-          />
-        </div>
-        <div class="col-md-4 mb-2">
-          <label for="value-label-{{ i }}-{{ j }}">Label:</label>
-          <input
-            id="value-label-{{ i }}-{{ j }}"
-            type="text"
-            class="form-control"
-            [(ngModel)]="value.label"
-            placeholder="Display label"
-          />
-        </div>
-        <div class="col-md-2 mb-2">
-          <label for="value-color-{{ i }}-{{ j }}">Color:</label>
-          <input
-            id="value-color-{{ i }}-{{ j }}"
-            type="color"
-            class="form-control form-control-color"
-            [(ngModel)]="value.color"
-          />
-        </div>
+      @for (value of eventType.values; track value; let j = $index) {
+        <div class="card-block">
+          <div class="row">
+            <div class="col-md-4 mb-2">
+              <label for="value-name-{{ i }}-{{ j }}">Value:</label>
+              <input
+                id="value-name-{{ i }}-{{ j }}"
+                type="text"
+                class="form-control"
+                [(ngModel)]="value.name"
+                name="value-{{ i }}-{{ j }}"
+                placeholder="e.g. READY"
+              />
+            </div>
+            <div class="col-md-4 mb-2">
+              <label for="value-label-{{ i }}-{{ j }}">Label:</label>
+              <input
+                id="value-label-{{ i }}-{{ j }}"
+                type="text"
+                class="form-control"
+                [(ngModel)]="value.label"
+                placeholder="Display label"
+              />
+            </div>
+            <div class="col-md-2 mb-2">
+              <label for="value-color-{{ i }}-{{ j }}">Color:</label>
+              <input
+                id="value-color-{{ i }}-{{ j }}"
+                type="color"
+                class="form-control form-control-color"
+                [(ngModel)]="value.color"
+              />
+            </div>
 
-        <div class="col-md-2 text-end">
-          <button
-            *ngIf="eventType.values.length > 1"
-            (click)="removeValue(i, j)"
-            class="btn btn-sm btn-link text-danger"
-            title="Remove value"
-          >
-            <i class="event-value-del" c8yIcon="minus-circle"></i>
-          </button>
+            <div class="col-md-2 text-end">
+              @if (eventType.values.length > 1) {
+                <button
+                  (click)="removeValue(i, j)"
+                  class="btn btn-sm btn-link text-danger"
+                  title="Remove value"
+                >
+                  <i class="event-value-del" c8yIcon="minus-circle"></i>
+                </button>
+              }
+            </div>
+          </div>
+          @if (j === eventType.values.length - 1) {
+            <div class="row">
+              <div class="col-md-12 text-center">
+                <button
+                  (click)="addValue(i)"
+                  class="btn btn-sm btn-link text-success"
+                  title="Add value"
+                >
+                  <i class="dlt-c8y-icon-plus-circle event-value-add"></i>
+                </button>
+              </div>
+            </div>
+          }
         </div>
-      </div>
-      <div class="row" *ngIf="j === eventType.values.length - 1">
-        <div class="col-md-12 text-center">
-          <button (click)="addValue(i)" class="btn btn-sm btn-link text-success" title="Add value">
-            <i class="dlt-c8y-icon-plus-circle event-value-add"></i>
-          </button>
-        </div>
-      </div>
+      }
     </div>
-  </div>
+  }
 
   <div class="text-end">
     <button class="btn btn-primary" (click)="addEventType()">Add Event Type</button>

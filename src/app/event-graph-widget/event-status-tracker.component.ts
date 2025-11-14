@@ -1,16 +1,27 @@
 import { AfterViewInit, Component, Input, OnInit, ViewChild } from '@angular/core';
-import { CountdownIntervalComponent, DatePipe } from '@c8y/ngx-components';
-import * as echarts from 'echarts';
+import { CoreModule, CountdownIntervalComponent, DatePipe } from '@c8y/ngx-components';
 import { EChartsOption } from 'echarts';
 import { has } from 'lodash';
 import { EventStatusTrackerService, IEventDuration } from './event-status-tracker.service';
 import { formatDistance, subHours } from 'date-fns';
 import { EventStatusTrackerConfig } from '../model/event-status-tracker';
+import { TooltipModule } from 'ngx-bootstrap/tooltip';
+import { ModalModule } from 'ngx-bootstrap/modal';
+import { NgxEchartsDirective, provideEchartsCore } from 'ngx-echarts';
+import * as echarts from 'echarts';
+import * as echartsCore from 'echarts/core';
+import { BarChart } from 'echarts/charts';
+import { GridComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
+echartsCore.use([BarChart, GridComponent, CanvasRenderer]);
 
 @Component({
   selector: 'app-event-status',
   templateUrl: './event-status-tracker.component.html',
   styleUrls: ['./event-status-tracker.component.css'],
+  imports: [CoreModule, ModalModule, TooltipModule, NgxEchartsDirective],
+  standalone: true,
+  providers: [provideEchartsCore({ echarts: echartsCore })],
 })
 export class EventStatusTrackerComponent implements OnInit, AfterViewInit {
   @Input() config: EventStatusTrackerConfig;
@@ -28,10 +39,13 @@ export class EventStatusTrackerComponent implements OnInit, AfterViewInit {
     encode: { x: number[]; y: number };
     data: { name: string; value: number[] }[];
   }[];
-  constructor(private eventStatusService: EventStatusTrackerService, private date: DatePipe) {}
+  constructor(
+    private eventStatusService: EventStatusTrackerService,
+    private date: DatePipe
+  ) {}
 
-  async ngOnInit() {
-    this.loadChartData();
+  ngOnInit() {
+    void this.loadChartData();
   }
 
   ngAfterViewInit(): void {
