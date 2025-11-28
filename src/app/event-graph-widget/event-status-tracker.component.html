@@ -1,28 +1,42 @@
-<div *ngIf="shouldUseRealtime"
-  class=" flex-wrap flex-no-shrink sticky-top m-b-16 d-flex fit-w separator-top-bottom widget-bar p-l-16 p-r-16">
-  <div class="d-contents">
-    <div class="m-l-auto d-flex p-t-4 p-b-4">
-      <div class="m-l-auto d-flex a-i-center">
-        <label class="m-b-0 m-r-8 text-label-small text-truncate flex-no-shrink" title=" Auto refresh">
-          Auto refresh
-        </label>
-        <div class="input-group">
-          <label placement="bottom" class="toggle-countdown" aria-label="Disable auto refresh"><input type="checkbox"
-              data-cy="c8y-alarms-widget--interval-toggle-button" />
-
-            <c8y-countdown-interval [countdownInterval]="30000"
-              (countdownEnded)="onCountdownEnded()"></c8y-countdown-interval>
+@if (shouldUseRealtime) {
+  <div
+    class="m-b-16 separator-top-bottom p-l-16 p-r-16"
+  >
+    <div class="d-contents">
+      <div class="m-l-auto d-flex p-t-4 p-b-4">
+        <div class="m-l-auto d-flex a-i-center">
+          <label
+            class="m-b-0 m-r-8 text-label-small text-truncate flex-no-shrink"
+            title=" Auto refresh"
+          >
+            Auto refresh
           </label>
-          <div class="input-group-btn">
-            <button (click)="refresh()" placement="bottom" type="button" data-cy="c8y-alarms-widget--reload-button"
-              class="btn btn-default" aria-label="Refresh">
-              <i c8yicon="refresh" class="c8y-icon dlt-c8y-icon-refresh"></i>
-            </button>
+          <div class="input-group">
+            <label placement="bottom" class="toggle-countdown" aria-label="Disable auto refresh"
+              ><input type="checkbox" data-cy="c8y-alarms-widget--interval-toggle-button" />
+  
+              <c8y-countdown-interval
+                [countdownInterval]="30000"
+                (countdownEnded)="refresh()"
+              ></c8y-countdown-interval>
+            </label>
+            <div class="input-group-btn">
+              <button
+                (click)="refresh()"
+                placement="bottom"
+                type="button"
+                data-cy="c8y-alarms-widget--reload-button"
+                class="btn btn-default"
+                aria-label="Refresh"
+              >
+                <i c8yicon="refresh" class="c8y-icon dlt-c8y-icon-refresh"></i>
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
-</div>
+}
 
 <div echarts [options]="chartOptions" class="demo-chart"></div>
