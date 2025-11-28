@@ -16,19 +16,16 @@ export class EventStatusTrackerService {
   constructor(private eventService: EventService) {}
 
   async fetchAndPrepareEvents(
-    start: Date,
-    now: Date,
     deviceId: string,
     type: EventTypeConfig,
     index: number,
-    timeBoxStart: number,
-    timeBoxEnd: number
+    timeBoxStart: Date,
+    timeBoxEnd: Date
   ) {
-    const events = await this.fetchEvents(start, now, deviceId, type.type);
-    console.log('events', events);
-    const withDuration = this.convert(timeBoxStart, timeBoxEnd, events);
+    const events = await this.fetchEvents(timeBoxStart, timeBoxEnd, deviceId, type.type);
+    const withDuration = this.convert(timeBoxStart.getTime(), timeBoxEnd.getTime(), events);
 
-    return this.toCustomFormat(index, timeBoxStart, withDuration, type.values);
+    return this.toCustomFormat(index, timeBoxStart.getTime(), withDuration, type.values);
   }
 
   async fetchEvents(
@@ -81,7 +78,7 @@ export class EventStatusTrackerService {
           return { ...e, duration: null };
         }
       } else {
-        // last spool that hasn't ended yet
+        // last event that hasn't ended yet
         const current = this.getTimestampFromString(timeboxStart, e.time);
         const durationInSeconds = this.asSeconds(timeboxEnd - current);
         return { ...e, duration: durationInSeconds };

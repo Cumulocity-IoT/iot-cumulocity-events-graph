@@ -1,11 +1,13 @@
-import { Component, Input } from '@angular/core';
-import { CoreModule, DynamicComponent, GlobalTimeContextWidgetConfig } from '@c8y/ngx-components';
+import { Component, inject, Input, OnInit, TemplateRef, ViewChild } from '@angular/core';
+import { CoreModule, DynamicComponent, GlobalTimeContextWidgetConfig, OnBeforeSave } from '@c8y/ngx-components';
 import { EventStatusTrackerConfig } from '../model/event-status-tracker';
+import { WidgetConfigService } from '@c8y/ngx-components/context-dashboard';
+import { EventStatusTrackerComponent } from './event-status-tracker.component';
 
 @Component({
-  selector: 'event-status',
+  selector: 'event-status-config',
   standalone: true,
-  imports: [CoreModule],
+  imports: [CoreModule, EventStatusTrackerComponent],
   templateUrl: './event-status-tracker-config.component.html',
   styles: [
     `
@@ -39,20 +41,28 @@ import { EventStatusTrackerConfig } from '../model/event-status-tracker';
     `,
   ],
 })
-export class EventStatusTrackerWidgetConfig implements DynamicComponent {
+export class EventStatusTrackerWidgetConfig implements OnInit, DynamicComponent, OnBeforeSave {
   @Input() config: EventStatusTrackerConfig & GlobalTimeContextWidgetConfig;
+
+  widgetConfigService = inject(WidgetConfigService)
+
+  // eslint-disable-next-line accessor-pairs
+  @ViewChild('preview')
+  set previewMapSet(template: TemplateRef<any>) {
+    if (template) {
+      this.config.widgetInstanceGlobalTimeContext = true;
+      this.config.canDecoupleGlobalTimeContext = true;
+      this.widgetConfigService.setPreview(template)
+      return
+    }
+    // @ts-expect-error - setPreview expects TemplateRef but we need to clear it
+    this.widgetConfigService.setPreview(null)
+  }
 
   ngOnInit() {
     if (!this.config.types) {
       this.config.types = [];
     }
-    this.config.realtimeInterval = this.config.realtimeInterval || 30000;
-
-    this.config = {
-      ...this.config,
-      widgetInstanceGlobalTimeContext: true,
-      canDecoupleGlobalTimeContext: false,
-    };
   }
 
   addEventType() {
@@ -72,5 +82,14 @@ export class EventStatusTrackerWidgetConfig implements DynamicComponent {
 
   removeValue(typeIndex: number, valueIndex: number) {
     this.config.types[typeIndex].values.splice(valueIndex, 1);
+  }
+
+  /**
+   * This example onBeforeSave handler cancels the saving, if the text is only a white-space.
+   */
+  onBeforeSave(config: EventStatusTrackerConfig & GlobalTimeContextWidgetConfig): boolean {
+    config.widgetInstanceGlobalTimeContext = true;
+    config.canDecoupleGlobalTimeContext = true;
+    return true;
   }
 }

@@ -1,9 +1,9 @@
-import { AfterViewInit, Component, Input, OnInit, ViewChild } from '@angular/core';
-import { CoreModule, CountdownIntervalComponent, DatePipe } from '@c8y/ngx-components';
+import { Component, Input, OnChanges, OnInit, SimpleChanges, ViewChild } from '@angular/core';
+import { CoreModule, CountdownIntervalComponent, DatePipe, GlobalTimeContextWidgetConfig } from '@c8y/ngx-components';
 import { EChartsOption } from 'echarts';
 import { has } from 'lodash';
 import { EventStatusTrackerService, IEventDuration } from './event-status-tracker.service';
-import { formatDistance, subHours } from 'date-fns';
+import { differenceInDays, differenceInHours, formatDistance, isSameMinute, startOfToday } from 'date-fns';
 import { EventStatusTrackerConfig } from '../model/event-status-tracker';
 import { TooltipModule } from 'ngx-bootstrap/tooltip';
 import { ModalModule } from 'ngx-bootstrap/modal';
@@ -23,11 +23,12 @@ echartsCore.use([BarChart, GridComponent, CanvasRenderer]);
   standalone: true,
   providers: [provideEchartsCore({ echarts: echartsCore })],
 })
-export class EventStatusTrackerComponent implements OnInit, AfterViewInit {
-  @Input() config: EventStatusTrackerConfig;
+export class EventStatusTrackerComponent implements OnInit, OnChanges {
+  @Input() config: EventStatusTrackerConfig & GlobalTimeContextWidgetConfig;
+  @Input() isInPreviewMode = false;
 
-  @ViewChild(CountdownIntervalComponent)
-  countdownIntervalComponent: CountdownIntervalComponent;
+  @ViewChild(CountdownIntervalComponent, { static: false })
+  countdownIntervalComponent?: CountdownIntervalComponent;
 
   events: IEventDuration[] = [];
   chartOptions: EChartsOption;
@@ -39,38 +40,78 @@ export class EventStatusTrackerComponent implements OnInit, AfterViewInit {
     encode: { x: number[]; y: number };
     data: { name: string; value: number[] }[];
   }[];
+
+  startDate?: Date;
+  endDate?: Date;
+  shouldUseRealtime = false;
+
+  isWithinRange: 'DAY' | 'HOUR' | 'MINUTE' = 'DAY';
+
   constructor(
     private eventStatusService: EventStatusTrackerService,
-    private date: DatePipe
-  ) {}
+    private datePipe: DatePipe
+  ) { }
 
-  ngOnInit() {
-    void this.loadChartData();
+  ngOnInit(): void {
+    if (this.isInPreviewMode) {
+      // In preview mode, we set default dates to show some data
+      this.endDate = new Date();
+      this.startDate = startOfToday();
+      this.shouldUseRealtime = false;
+      this.loadChartData();
+    } else if (this.shouldUseRealtime) {
+      this.countdownIntervalComponent!.start();
+    }
   }
 
-  ngAfterViewInit(): void {
-    if (this.config.realtime) {
-      this.countdownIntervalComponent.start();
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!this.isInPreviewMode && changes['config']?.currentValue.date) {
+      const [startDate, endDate] = changes['config']?.currentValue.date;
+      if ((!this.startDate && !this.endDate) || (this.startDate !== startDate && this.endDate !== endDate)) {
+        this.startDate = new Date(startDate);
+        this.endDate = new Date(endDate);
+        this.isWithinRange = this.detectTimeframe(this.startDate, this.endDate);
+        // Consider realtime if the configured endDate is the same minute as now (ignore seconds and ms)
+        const shouldUseRealtime = !!endDate && isSameMinute(endDate, new Date());
+        if (this.shouldUseRealtime !== shouldUseRealtime) {
+          this.shouldUseRealtime = shouldUseRealtime;
+          shouldUseRealtime && setTimeout(() => {
+            this.countdownIntervalComponent!.start();
+          }, 200);
+        }
+        void this.loadChartData();
+      }
+    }
+  }
+
+  private detectTimeframe(startDate: Date, endDate: Date) {
+    const diffInHours = differenceInHours(endDate, startDate);
+    const diffInDays = differenceInDays(endDate, startDate);
+
+    if (diffInHours <= 1) {
+      return 'MINUTE';
+    } else if (diffInDays <= 1) {
+      return 'HOUR';
+    } else {
+      return 'DAY';
     }
   }
 
   refresh(): void {
     this.loadChartData();
-    this.countdownIntervalComponent.reset();
+    this.countdownIntervalComponent?.reset();
   }
 
   onCountdownEnded(): void {
     this.loadChartData();
-    this.countdownIntervalComponent.reset();
+    this.countdownIntervalComponent?.reset();
   }
 
   async loadChartData() {
-    const now = new Date();
-    const start = subHours(now, this.config.hours || 4);
-    const timeBoxStart = Date.parse(start.toISOString());
-    const timeBoxEnd = Date.parse(now.toISOString());
+    if (!this.startDate || !this.endDate) {
+      return;
+    }
     this.series = [];
-
     if (has(this.config, 'device')) {
       try {
         const categories: string[] = [];
@@ -78,17 +119,17 @@ export class EventStatusTrackerComponent implements OnInit, AfterViewInit {
           categories.push(type.type);
         });
         // @ts-ignore
-        this.series = await this.prepareChartData(now, start, timeBoxStart, timeBoxEnd);
+        this.series = await this.prepareChartData(this.startDate!, this.endDate!);
 
         this.chartOptions = {
           tooltip: {
             formatter: (item: echarts.DefaultLabelFormatterCallbackParams) => {
               const event = this.series[item.seriesIndex!].data[item.dataIndex];
               const [, startDate, endDate, duration] = item.value as number[];
-              return `<b>Text:</b> ${event.name}<br/><b>Start date:</b> ${this.date.transform(
-                startDate
-              )}<br/><b>End date:</b>${this.date.transform(
-                endDate
+              return `<b>Text:</b> ${event.name}<br/><b>Start date:</b> ${this.datePipe.transform(
+                startDate, 'medium'
+              )}<br/><b>End date:</b>${this.datePipe.transform(
+                endDate, 'medium'
               )}<br/><b>Duration:</b> ca. ${formatDistance(0, duration, {
                 includeSeconds: true,
               })}`;
@@ -118,10 +159,10 @@ export class EventStatusTrackerComponent implements OnInit, AfterViewInit {
           },
 
           xAxis: {
-            min: timeBoxStart,
+            min: this.startDate.getTime(),
             scale: true,
             axisLabel: {
-              formatter: (val: number) => this.date.transform(val, 'HH:mm'),
+              formatter: (val: number) => this.xAxisFormatter(val, this.isWithinRange),
             },
           },
 
@@ -136,12 +177,19 @@ export class EventStatusTrackerComponent implements OnInit, AfterViewInit {
     }
   }
 
-  async prepareChartData(now: Date, start: Date, timeBoxStart: number, timeBoxEnd: number) {
+  xAxisFormatter(value: number, isWithinRange: 'DAY' | 'HOUR' | 'MINUTE'): string {
+    if (isWithinRange === 'HOUR') {
+      return this.datePipe.transform(value, 'HH:mm') || '';
+    } else if (isWithinRange === 'MINUTE') {
+      return this.datePipe.transform(value, 'HH:mm:ss') || '';
+    }
+    return this.datePipe.transform(value, 'MMM d, HH:mm') || '';
+  }
+
+  async prepareChartData(timeBoxStart: Date, timeBoxEnd: Date) {
     const series = [];
     for (const [index, type] of this.config.types.entries()) {
       const custom = await this.eventStatusService.fetchAndPrepareEvents(
-        start,
-        now,
         this.config.device.id,
         type,
         index,
@@ -151,6 +199,7 @@ export class EventStatusTrackerComponent implements OnInit, AfterViewInit {
 
       // @ts-ignore
       series.push(...this.eventStatusService.toSeries(custom, this.renderItem, type.values));
+      console.log('Prepared series:', series);
     }
     return series;
   }

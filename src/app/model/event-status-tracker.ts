@@ -1,7 +1,4 @@
 export type EventStatusTrackerConfig = {
-  hours: number;
-  realtime: boolean;
-  realtimeInterval: number;
   device: {
     id: string;
     name: string;
