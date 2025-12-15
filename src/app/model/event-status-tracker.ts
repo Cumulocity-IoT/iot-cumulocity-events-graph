@@ -14,9 +14,6 @@ export type EventConfig = {
 
 export type EventTypeConfig = {
   type: string;
-  values: {
-    name: string;
-    color: string;
-    label: string;
-  }[];
+  values: EventConfig[];
+  endFragment?: string;
 };

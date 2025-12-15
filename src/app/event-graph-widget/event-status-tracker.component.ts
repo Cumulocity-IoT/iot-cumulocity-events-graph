@@ -16,7 +16,7 @@ import { CanvasRenderer } from 'echarts/renderers';
 echartsCore.use([BarChart, GridComponent, CanvasRenderer]);
 
 @Component({
-  selector: 'app-event-status',
+  selector: 'c8y-event-status',
   templateUrl: './event-status-tracker.component.html',
   styleUrls: ['./event-status-tracker.component.css'],
   imports: [CoreModule, ModalModule, TooltipModule, NgxEchartsDirective],

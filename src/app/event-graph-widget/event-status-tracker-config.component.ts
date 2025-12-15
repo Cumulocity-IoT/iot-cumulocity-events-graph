@@ -1,50 +1,26 @@
 import { Component, inject, Input, OnInit, TemplateRef, ViewChild } from '@angular/core';
-import { CoreModule, DynamicComponent, GlobalTimeContextWidgetConfig, OnBeforeSave } from '@c8y/ngx-components';
+import {
+  CoreModule,
+  DynamicComponent,
+  GlobalTimeContextWidgetConfig,
+  OnBeforeSave,
+} from '@c8y/ngx-components';
 import { EventStatusTrackerConfig } from '../model/event-status-tracker';
 import { WidgetConfigService } from '@c8y/ngx-components/context-dashboard';
 import { EventStatusTrackerComponent } from './event-status-tracker.component';
 
 @Component({
-  selector: 'event-status-config',
+  selector: 'c8y-event-status-config',
   standalone: true,
   imports: [CoreModule, EventStatusTrackerComponent],
   templateUrl: './event-status-tracker-config.component.html',
-  styles: [
-    `
-      .d-flex {
-        display: flex;
-        align-items: center;
-      }
-      .egw-card-header {
-        display: block;
-      }
-      .event-type-del {
-        float: right;
-        padding-top: 25px;
-        font-size: 22px;
-      }
-      .event-value-add {
-        font-size: 16px;
-        margin-top: 15px;
-      }
-      .event-value-del {
-        font-size: 16px;
-        margin-top: 20px;
-      }
-      .form-group {
-        margin-right: 10px;
-      }
-      .input-group-btn {
-        display: flex;
-        align-items: center;
-      }
-    `,
-  ],
+  styleUrl: './event-status-tracker-config.component.css',
 })
 export class EventStatusTrackerWidgetConfig implements OnInit, DynamicComponent, OnBeforeSave {
   @Input() config: EventStatusTrackerConfig & GlobalTimeContextWidgetConfig;
 
-  widgetConfigService = inject(WidgetConfigService)
+  widgetConfigService = inject(WidgetConfigService);
+  eventHasEndFragment: boolean[] = [];
 
   // eslint-disable-next-line accessor-pairs
   @ViewChild('preview')
@@ -52,11 +28,11 @@ export class EventStatusTrackerWidgetConfig implements OnInit, DynamicComponent,
     if (template) {
       this.config.widgetInstanceGlobalTimeContext = true;
       this.config.canDecoupleGlobalTimeContext = true;
-      this.widgetConfigService.setPreview(template)
-      return
+      this.widgetConfigService.setPreview(template);
+      return;
     }
     // @ts-expect-error - setPreview expects TemplateRef but we need to clear it
-    this.widgetConfigService.setPreview(null)
+    this.widgetConfigService.setPreview(null);
   }
 
   ngOnInit() {

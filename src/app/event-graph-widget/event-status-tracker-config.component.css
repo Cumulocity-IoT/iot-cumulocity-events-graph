@@ -1,0 +1,7 @@
+.card-block > .form-group {
+  margin-bottom: 0;
+}
+
+.card-block > .form-group + * {
+  margin-left: 10px;
+}

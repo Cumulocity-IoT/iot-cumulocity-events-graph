@@ -1,7 +1,5 @@
 @if (shouldUseRealtime) {
-  <div
-    class="m-b-16 separator-top-bottom p-l-16 p-r-16"
-  >
+  <div class="m-b-16 separator-top-bottom p-l-16 p-r-16">
     <div class="d-contents">
       <div class="m-l-auto d-flex p-t-4 p-b-4">
         <div class="m-l-auto d-flex a-i-center">
@@ -14,7 +12,7 @@
           <div class="input-group">
             <label placement="bottom" class="toggle-countdown" aria-label="Disable auto refresh"
               ><input type="checkbox" data-cy="c8y-alarms-widget--interval-toggle-button" />
-  
+
               <c8y-countdown-interval
                 [countdownInterval]="30000"
                 (countdownEnded)="refresh()"
