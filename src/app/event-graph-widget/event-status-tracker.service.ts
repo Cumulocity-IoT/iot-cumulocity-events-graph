@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { EventService, IEvent } from '@c8y/client';
 import { subHours } from 'date-fns';
 import { CustomSeriesRenderItem } from 'echarts';
-import { groupBy, isEmpty } from 'lodash';
+import { groupBy, has, isEmpty } from 'lodash';
 import { EventConfig, EventTypeConfig } from '../model/event-status-tracker';
 
 export interface IEventDuration extends IEvent {
@@ -10,7 +10,12 @@ export interface IEventDuration extends IEvent {
    * Duration in seconds
    */
   duration: number | null;
+  /**
+   * Optional end fragment to determine event end
+   */
+  endFragment?: string;
 }
+
 @Injectable()
 export class EventStatusTrackerService {
   constructor(private eventService: EventService) {}
@@ -23,7 +28,12 @@ export class EventStatusTrackerService {
     timeBoxEnd: Date
   ) {
     const events = await this.fetchEvents(timeBoxStart, timeBoxEnd, deviceId, type.type);
-    const withDuration = this.convert(timeBoxStart.getTime(), timeBoxEnd.getTime(), events);
+    const withDuration = this.convert(
+      timeBoxStart.getTime(),
+      timeBoxEnd.getTime(),
+      events,
+      type.endFragment
+    );
 
     return this.toCustomFormat(index, timeBoxStart.getTime(), withDuration, type.values);
   }
@@ -57,6 +67,7 @@ export class EventStatusTrackerService {
         type,
       };
       const { data } = await this.eventService.list(dateBefore);
+
       if (!isEmpty(data)) {
         events.unshift(data[0]);
       }
@@ -65,26 +76,36 @@ export class EventStatusTrackerService {
     return events;
   }
 
-  convert(timeboxStart: number, timeboxEnd: number, events: IEvent[]): IEventDuration[] {
+  convert(
+    timeboxStart: number,
+    timeboxEnd: number,
+    events: IEvent[],
+    endFragment?: string
+  ): IEventDuration[] {
     const lastIndex = events.length - 1;
-    const update = events.map((e, index) => {
-      if (index < lastIndex) {
-        const current = this.getTimestampFromString(timeboxStart, e.time);
+
+    return events.map((e, index) => {
+      const current = this.getTimestampFromString(timeboxStart, e.time);
+
+      if (endFragment && has(e, endFragment)) {
+        // Check if endFragment is defined and present in the event
+        const endFragmentValue = e[endFragment as keyof IEvent];
+        // Try to parse endFragment as a timestamp
+        const endTime = this.getTimestampFromString(timeboxStart, String(endFragmentValue));
+
+        return endTime > current
+          ? { ...e, duration: endTime - current, endFragment }
+          : { ...e, duration: null };
+      } else if (index < lastIndex) {
+        // Fallback to next event's start time
         const next = this.getTimestampFromString(timeboxStart, events[index + 1].time);
-        if (next > current) {
-          const durationInSeconds = this.asSeconds(next - current);
-          return { ...e, duration: durationInSeconds };
-        } else {
-          return { ...e, duration: null };
-        }
-      } else {
-        // last event that hasn't ended yet
-        const current = this.getTimestampFromString(timeboxStart, e.time);
-        const durationInSeconds = this.asSeconds(timeboxEnd - current);
-        return { ...e, duration: durationInSeconds };
+
+        return next > current ? { ...e, duration: next - current } : { ...e, duration: null };
       }
+
+      // last event that hasn't ended yet
+      return { ...e, duration: timeboxEnd - current };
     });
-    return update;
   }
 
   toCustomFormat(
@@ -94,17 +115,25 @@ export class EventStatusTrackerService {
     types: EventConfig[]
   ) {
     let baseTime = timeBoxStart;
+
     const seriesData = events.map((event) => {
+      const hasEndFragment = has(event, 'endFragment');
       const eventConfig = types.find((type) => type.name === event.text);
-      const duration = (event.duration ?? 0) * 1000;
+      const duration = event.duration ?? 0;
+      const start = hasEndFragment ? new Date(event.time).getTime() : baseTime;
+      const end = hasEndFragment
+        ? new Date(event[event['endFragment'] as string]).getTime()
+        : (baseTime += duration);
+
       return {
         name: eventConfig?.label ? eventConfig.label : event.text,
-        value: [categoryIndex, baseTime, (baseTime += duration), duration],
+        value: [categoryIndex, start, end, duration],
         itemStyle: {
           color: eventConfig?.color,
         },
       };
     });
+
     return seriesData;
   }
 
@@ -138,14 +167,8 @@ export class EventStatusTrackerService {
   }
 
   private getTimestampFromString(timeboxStart: number, dateString: string): number {
-    let timestap = Date.parse(dateString);
-    if (timestap < timeboxStart) {
-      timestap = timeboxStart;
-    }
-    return timestap;
-  }
+    let timestamp = Date.parse(dateString);
 
-  private asSeconds(timestamp: number): number {
-    return Math.floor(timestamp / 1000);
+    return timestamp < timeboxStart ? timeboxStart : timestamp;
   }
 }

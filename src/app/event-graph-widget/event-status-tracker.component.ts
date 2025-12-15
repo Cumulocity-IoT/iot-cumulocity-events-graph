@@ -1,19 +1,32 @@
-import { Component, Input, OnChanges, OnInit, SimpleChanges, ViewChild } from '@angular/core';
-import { CoreModule, CountdownIntervalComponent, DatePipe, GlobalTimeContextWidgetConfig } from '@c8y/ngx-components';
-import { EChartsOption } from 'echarts';
-import { has } from 'lodash';
-import { EventStatusTrackerService, IEventDuration } from './event-status-tracker.service';
-import { differenceInDays, differenceInHours, formatDistance, isSameMinute, startOfToday } from 'date-fns';
-import { EventStatusTrackerConfig } from '../model/event-status-tracker';
-import { TooltipModule } from 'ngx-bootstrap/tooltip';
-import { ModalModule } from 'ngx-bootstrap/modal';
-import { NgxEchartsDirective, provideEchartsCore } from 'ngx-echarts';
+import { Component, Input, OnChanges, SimpleChanges, ViewChild } from '@angular/core';
+import {
+  CoreModule,
+  CountdownIntervalComponent,
+  DatePipe,
+  GlobalTimeContextWidgetConfig,
+} from '@c8y/ngx-components';
+import {
+  differenceInDays,
+  differenceInHours,
+  formatDistance,
+  isSameMinute,
+  startOfToday
+} from 'date-fns';
 import * as echarts from 'echarts';
-import * as echartsCore from 'echarts/core';
+import { EChartsOption } from 'echarts';
 import { BarChart } from 'echarts/charts';
 import { GridComponent } from 'echarts/components';
+import * as echartsCore from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
+import { has } from 'lodash';
+import { ModalModule } from 'ngx-bootstrap/modal';
+import { TooltipModule } from 'ngx-bootstrap/tooltip';
+import { NgxEchartsDirective, provideEchartsCore } from 'ngx-echarts';
+import { EventStatusTrackerConfig } from '../model/event-status-tracker';
+import { EventStatusTrackerService, IEventDuration } from './event-status-tracker.service';
 echartsCore.use([BarChart, GridComponent, CanvasRenderer]);
+
+type TimeRange = 'DAY' | 'HOUR' | 'MINUTE';
 
 @Component({
   selector: 'c8y-event-status',
@@ -23,7 +36,7 @@ echartsCore.use([BarChart, GridComponent, CanvasRenderer]);
   standalone: true,
   providers: [provideEchartsCore({ echarts: echartsCore })],
 })
-export class EventStatusTrackerComponent implements OnInit, OnChanges {
+export class EventStatusTrackerComponent implements OnChanges {
   @Input() config: EventStatusTrackerConfig & GlobalTimeContextWidgetConfig;
   @Input() isInPreviewMode = false;
 
@@ -44,30 +57,28 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges {
   startDate?: Date;
   endDate?: Date;
   shouldUseRealtime = false;
+  barScale = 0.9; // TODO 0.2
 
-  isWithinRange: 'DAY' | 'HOUR' | 'MINUTE' = 'DAY';
+  isWithinRange: TimeRange = 'DAY';
 
   constructor(
     private eventStatusService: EventStatusTrackerService,
     private datePipe: DatePipe
-  ) { }
+  ) {}
 
-  ngOnInit(): void {
+  ngOnChanges(changes: SimpleChanges): void {
     if (this.isInPreviewMode) {
       // In preview mode, we set default dates to show some data
       this.endDate = new Date();
       this.startDate = startOfToday();
       this.shouldUseRealtime = false;
       this.loadChartData();
-    } else if (this.shouldUseRealtime) {
-      this.countdownIntervalComponent!.start();
-    }
-  }
-
-  ngOnChanges(changes: SimpleChanges): void {
-    if (!this.isInPreviewMode && changes['config']?.currentValue.date) {
+    } else if (!this.isInPreviewMode && changes['config']?.currentValue.date) {
       const [startDate, endDate] = changes['config']?.currentValue.date;
-      if ((!this.startDate && !this.endDate) || (this.startDate !== startDate && this.endDate !== endDate)) {
+      if (
+        (!this.startDate && !this.endDate) ||
+        (this.startDate !== startDate && this.endDate !== endDate)
+      ) {
         this.startDate = new Date(startDate);
         this.endDate = new Date(endDate);
         this.isWithinRange = this.detectTimeframe(this.startDate, this.endDate);
@@ -75,9 +86,10 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges {
         const shouldUseRealtime = !!endDate && isSameMinute(endDate, new Date());
         if (this.shouldUseRealtime !== shouldUseRealtime) {
           this.shouldUseRealtime = shouldUseRealtime;
-          shouldUseRealtime && setTimeout(() => {
-            this.countdownIntervalComponent!.start();
-          }, 200);
+          shouldUseRealtime &&
+            setTimeout(() => {
+              this.countdownIntervalComponent!.start();
+            }, 200);
         }
         void this.loadChartData();
       }
@@ -126,13 +138,15 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges {
             formatter: (item: echarts.DefaultLabelFormatterCallbackParams) => {
               const event = this.series[item.seriesIndex!].data[item.dataIndex];
               const [, startDate, endDate, duration] = item.value as number[];
-              return `<b>Text:</b> ${event.name}<br/><b>Start date:</b> ${this.datePipe.transform(
-                startDate, 'medium'
-              )}<br/><b>End date:</b>${this.datePipe.transform(
-                endDate, 'medium'
-              )}<br/><b>Duration:</b> ca. ${formatDistance(0, duration, {
-                includeSeconds: true,
-              })}`;
+
+              return (
+                `<b>Text:</b> ${event.name}<br/>` +
+                `<b>Start date:</b> ${this.datePipe.transform(startDate)}<br/>` +
+                `<b>End date:</b> ${this.datePipe.transform(endDate)}<br/>` +
+                `<b>Duration:</b> ca. ${formatDistance(0, duration, {
+                  includeSeconds: true,
+                })}`
+              );
             },
           },
 
@@ -141,7 +155,7 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges {
               type: 'slider',
               filterMode: 'weakFilter',
               showDataShadow: false,
-              top: 250,
+              bottom: 10,
               labelFormatter: '',
             },
             {
@@ -154,10 +168,9 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges {
           },
           grid: {
             left: '3%',
+            right: 24,
             containLabel: true,
-            height: 150,
           },
-
           xAxis: {
             min: this.startDate.getTime(),
             scale: true,
@@ -165,7 +178,6 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges {
               formatter: (val: number) => this.xAxisFormatter(val, this.isWithinRange),
             },
           },
-
           yAxis: {
             data: categories,
           },
@@ -177,7 +189,7 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges {
     }
   }
 
-  xAxisFormatter(value: number, isWithinRange: 'DAY' | 'HOUR' | 'MINUTE'): string {
+  xAxisFormatter(value: number, isWithinRange: TimeRange): string {
     if (isWithinRange === 'HOUR') {
       return this.datePipe.transform(value, 'HH:mm') || '';
     } else if (isWithinRange === 'MINUTE') {
@@ -188,6 +200,7 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges {
 
   async prepareChartData(timeBoxStart: Date, timeBoxEnd: Date) {
     const series = [];
+
     for (const [index, type] of this.config.types.entries()) {
       const custom = await this.eventStatusService.fetchAndPrepareEvents(
         this.config.device.id,
@@ -199,7 +212,6 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges {
 
       // @ts-ignore
       series.push(...this.eventStatusService.toSeries(custom, this.renderItem, type.values));
-      console.log('Prepared series:', series);
     }
     return series;
   }
@@ -212,7 +224,7 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges {
     const start = api.coord([api.value(1), categoryIndex]);
     const end = api.coord([api.value(2), categoryIndex]);
     // @ts-ignore
-    const height = api.size([0, 1])[1] * 0.2;
+    const height = api.size([0, 1])[1] * this.barScale;
     const rectShape = echarts.graphic.clipRectByRect(
       {
         x: start[0],
@@ -227,6 +239,7 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges {
         height: (<any>params.coordSys).height,
       }
     );
+
     return (
       rectShape && {
         type: 'rect',
