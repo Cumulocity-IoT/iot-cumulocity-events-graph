@@ -1,7 +1,30 @@
+<!--bar size -->
+<div class="m-t-16">
+  <div class="form-group flex-grow d-flex a-i-center">
+    <label for="scale" translate>Event Bar Scale</label>
+    <c8y-range class="m-l-16" style="flex: 1 1 auto" [ngModel]="config.barScale">
+      <ng-template #c8yRangeValue>
+        <span>{{ config.barScale }}% </span>
+      </ng-template>
+      <input
+        id="scale"
+        type="range"
+        min="0"
+        max="100"
+        steps="1"
+        [(ngModel)]="config.barScale"
+      />
+    </c8y-range>
+  </div>
+</div>
+
+<hr />
+
 <!-- event types list -->
 @for (eventType of config.types; track eventType; let i = $index) {
   <div class="card">
     <div class="card-header d-block separator">
+      <!-- event type -->
       <div class="form-inline d-flex">
         <div class="form-group flex-grow d-flex a-i-center">
           <label for="type-{{ i }}" translate>Event Type</label>
@@ -23,6 +46,7 @@
         }
       </div>
 
+      <!-- event end fragment -->
       <div class="m-t-16">
         <label class="c8y-switch">
           <input [(ngModel)]="eventHasEndFragment[i]" type="checkbox" checked="checked" />

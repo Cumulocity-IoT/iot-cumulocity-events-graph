@@ -5,7 +5,7 @@ import {
   GlobalTimeContextWidgetConfig,
   OnBeforeSave,
 } from '@c8y/ngx-components';
-import { EventStatusTrackerConfig } from '../model/event-status-tracker';
+import { EVENT_STATUS__BAR_SCALE_DEFAULT, EventStatusTrackerConfig } from '../model/event-status-tracker';
 import { WidgetConfigService } from '@c8y/ngx-components/context-dashboard';
 import { EventStatusTrackerComponent } from './event-status-tracker.component';
 
@@ -36,9 +36,8 @@ export class EventStatusTrackerWidgetConfig implements OnInit, DynamicComponent,
   }
 
   ngOnInit() {
-    if (!this.config.types) {
-      this.config.types = [];
-    }
+    if (!this.config.types) this.config.types = [];
+    if (!this.config.barScale) this.config.barScale = EVENT_STATUS__BAR_SCALE_DEFAULT;
   }
 
   addEventType() {

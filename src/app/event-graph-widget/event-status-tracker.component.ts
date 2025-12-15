@@ -10,7 +10,7 @@ import {
   differenceInHours,
   formatDistance,
   isSameMinute,
-  startOfToday
+  startOfToday,
 } from 'date-fns';
 import * as echarts from 'echarts';
 import { EChartsOption } from 'echarts';
@@ -22,7 +22,10 @@ import { has } from 'lodash';
 import { ModalModule } from 'ngx-bootstrap/modal';
 import { TooltipModule } from 'ngx-bootstrap/tooltip';
 import { NgxEchartsDirective, provideEchartsCore } from 'ngx-echarts';
-import { EventStatusTrackerConfig } from '../model/event-status-tracker';
+import {
+  EVENT_STATUS__BAR_SCALE_DEFAULT,
+  EventStatusTrackerConfig,
+} from '../model/event-status-tracker';
 import { EventStatusTrackerService, IEventDuration } from './event-status-tracker.service';
 echartsCore.use([BarChart, GridComponent, CanvasRenderer]);
 
@@ -220,11 +223,12 @@ export class EventStatusTrackerComponent implements OnChanges {
     params: echarts.CustomSeriesRenderItemParams,
     api: echarts.CustomSeriesRenderItemAPI
   ) => {
+    const barSize = this.config.barScale || EVENT_STATUS__BAR_SCALE_DEFAULT;
     const categoryIndex = api.value(0);
     const start = api.coord([api.value(1), categoryIndex]);
     const end = api.coord([api.value(2), categoryIndex]);
     // @ts-ignore
-    const height = api.size([0, 1])[1] * this.barScale;
+    const height = api.size([0, 1])[1] * (barSize / 100);
     const rectShape = echarts.graphic.clipRectByRect(
       {
         x: start[0],
