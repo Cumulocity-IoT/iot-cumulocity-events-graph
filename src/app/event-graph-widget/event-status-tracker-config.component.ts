@@ -38,6 +38,8 @@ export class EventStatusTrackerWidgetConfig implements OnInit, DynamicComponent,
   ngOnInit() {
     if (!this.config.types) this.config.types = [];
     if (!this.config.barScale) this.config.barScale = EVENT_STATUS__BAR_SCALE_DEFAULT;
+
+    this.initEndFragmentArray();
   }
 
   addEventType() {
@@ -66,5 +68,12 @@ export class EventStatusTrackerWidgetConfig implements OnInit, DynamicComponent,
     config.widgetInstanceGlobalTimeContext = true;
     config.canDecoupleGlobalTimeContext = true;
     return true;
+  }
+
+  private initEndFragmentArray() {
+    this.config.types.forEach((eventType, index) => {
+      const hasEndFragment = eventType.endFragment !== undefined;
+      this.eventHasEndFragment[index] = hasEndFragment;
+    });
   }
 }
