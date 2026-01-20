@@ -1,256 +1,281 @@
-import { Component, Input, OnChanges, SimpleChanges, ViewChild } from '@angular/core';
-import {
-  CoreModule,
-  CountdownIntervalComponent,
-  DatePipe,
-  GlobalTimeContextWidgetConfig,
-} from '@c8y/ngx-components';
-import {
-  differenceInDays,
-  differenceInHours,
-  formatDistance,
-  isSameMinute,
-  startOfToday,
-} from 'date-fns';
-import * as echarts from 'echarts';
+import { Component, inject, Input, OnChanges, OnDestroy, OnInit } from '@angular/core';
+import { IEvent, IManagedObject } from '@c8y/client';
+import { CoreModule, DatePipe } from '@c8y/ngx-components';
+import { formatDistance } from 'date-fns';
 import { EChartsOption } from 'echarts';
-import { BarChart } from 'echarts/charts';
-import { GridComponent } from 'echarts/components';
+import { BarChart, CustomChart } from 'echarts/charts';
+import { DataZoomComponent, GridComponent, TooltipComponent } from 'echarts/components';
 import * as echartsCore from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import { has } from 'lodash';
-import { ModalModule } from 'ngx-bootstrap/modal';
 import { TooltipModule } from 'ngx-bootstrap/tooltip';
 import { NgxEchartsDirective, provideEchartsCore } from 'ngx-echarts';
-import {
-  EVENT_STATUS__BAR_SCALE_DEFAULT,
-  EventStatusTrackerConfig,
-} from '../model/event-status-tracker';
-import { EventStatusTrackerService, IEventDuration } from './event-status-tracker.service';
-echartsCore.use([BarChart, GridComponent, CanvasRenderer]);
+import { EventStatusTrackerConfig } from '../model/event-status-tracker';
+import { EventStatusTrackerService } from './event-status-tracker.service';
+import { debounceTime, Subject } from 'rxjs';
 
-type TimeRange = 'DAY' | 'HOUR' | 'MINUTE';
+echartsCore.use([
+  BarChart,
+  GridComponent,
+  TooltipComponent,
+  CanvasRenderer,
+  DataZoomComponent,
+  CustomChart,
+]);
+
+interface EventBlock {
+  label: string;
+  start: number;
+  end: number;
+  blockStart: number;
+  blockEnd: number;
+  duration: number;
+  color?: string;
+}
 
 @Component({
   selector: 'c8y-event-status',
   templateUrl: './event-status-tracker.component.html',
   styleUrls: ['./event-status-tracker.component.css'],
-  imports: [CoreModule, ModalModule, TooltipModule, NgxEchartsDirective],
+  imports: [CoreModule, TooltipModule, NgxEchartsDirective],
   standalone: true,
   providers: [provideEchartsCore({ echarts: echartsCore })],
 })
-export class EventStatusTrackerComponent implements OnChanges {
-  @Input() config: EventStatusTrackerConfig & GlobalTimeContextWidgetConfig;
+export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy {
+  private eventStatusTrackerService = inject(EventStatusTrackerService);
+  private datePipe = inject(DatePipe);
+
+  @Input() config: EventStatusTrackerConfig;
   @Input() isInPreviewMode = false;
 
-  @ViewChild(CountdownIntervalComponent, { static: false })
-  countdownIntervalComponent?: CountdownIntervalComponent;
+  // from config
+  deviceId!: IManagedObject['id'];
 
-  events: IEventDuration[] = [];
-  chartOptions: EChartsOption;
-  series: {
-    type: string;
-    name: string;
-    renderItem: any;
-    itemStyle: { opacity: number; color: string };
-    encode: { x: number[]; y: number };
-    data: { name: string; value: number[] }[];
-  }[];
+  timeframe!: [Date, Date]; // from widget config
+  chartOptions!: EChartsOption; // generated
 
-  startDate?: Date;
-  endDate?: Date;
-  shouldUseRealtime = false;
-  barScale = 0.9; // TODO 0.2
+  startEvents: IEvent[] = []; // via service
+  endEvents: IEvent[] = []; // via service
+  isDev = false; // from url search param
 
-  isWithinRange: TimeRange = 'DAY';
+  // debounce change events
+  private readonly reloadTimeout = 300;
+  private reloadSubject = new Subject<void>();
 
-  constructor(
-    private eventStatusService: EventStatusTrackerService,
-    private datePipe: DatePipe
-  ) {}
+  constructor() {
+    this.reloadSubject
+      .pipe(debounceTime(this.reloadTimeout))
+      .subscribe(() => this.performReload());
+  }
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (this.isInPreviewMode) {
-      // In preview mode, we set default dates to show some data
-      this.endDate = new Date();
-      this.startDate = startOfToday();
-      this.shouldUseRealtime = false;
-      this.loadChartData();
-    } else if (!this.isInPreviewMode && changes['config']?.currentValue.date) {
-      const [startDate, endDate] = changes['config']?.currentValue.date;
-      if (
-        (!this.startDate && !this.endDate) ||
-        (this.startDate !== startDate && this.endDate !== endDate)
-      ) {
-        this.startDate = new Date(startDate);
-        this.endDate = new Date(endDate);
-        this.isWithinRange = this.detectTimeframe(this.startDate, this.endDate);
-        // Consider realtime if the configured endDate is the same minute as now (ignore seconds and ms)
-        const shouldUseRealtime = !!endDate && isSameMinute(endDate, new Date());
-        if (this.shouldUseRealtime !== shouldUseRealtime) {
-          this.shouldUseRealtime = shouldUseRealtime;
-          shouldUseRealtime &&
-            setTimeout(() => {
-              this.countdownIntervalComponent!.start();
-            }, 200);
-        }
-        void this.loadChartData();
+  async ngOnChanges(changes: any): Promise<void> {
+    this.deviceId = this.config.device?.id as IManagedObject['id'];
+
+    if (!changes?.config?.currentValue?.date) return;
+    this.timeframe = changes.config.currentValue.date;
+
+    this.reloadSubject.next();
+  }
+
+  ngOnInit(): void {
+    if (window.location.search.indexOf('dev=true') > -1) this.isDev = true;
+  }
+
+  ngOnDestroy(): void {
+    this.reloadSubject.complete();
+  }
+
+  reload(): void {
+    this.reloadSubject.next();
+  }
+
+  private async performReload(): Promise<void> {
+    await this.fetchEvents(this.config.start, this.config.end);
+
+    const blocks = this.buildEventBlocks(this.startEvents, this.endEvents, this.timeframe);
+
+    this.chartOptions = this.buildChartOptions(blocks);
+  }
+
+  private devLog(...args: any[]): void {
+    if (this.isDev) {
+      console.log(...args);
+    }
+  }
+
+  private buildEventBlocks(
+    starts: IEvent[],
+    ends: IEvent[],
+    timeframe: [Date, Date]
+  ): EventBlock[] {
+    this.devLog('buildEventBlocks', { starts, ends, timeframe });
+
+    const [frameStart, frameEnd] = timeframe.map((d) => d.getTime());
+
+    const sortedStarts = [...starts]
+      .map((e) => ({ ...e, ts: Date.parse(e.time) }))
+      .filter((e) => e.ts <= frameEnd)
+      .sort((a, b) => a.ts - b.ts);
+
+    const sortedEnds = [...ends]
+      .map((e) => ({ ...e, ts: Date.parse(e.time) }))
+      .filter((e) => e.ts >= frameStart)
+      .sort((a, b) => a.ts - b.ts);
+
+    let endIndex = 0;
+
+    // first end has no matching start – generate artificial start to fill timeframe
+    if (sortedStarts.length < sortedEnds.length) {
+      console.log('artificial start added');
+      const openEnd = sortedEnds[0];
+
+      sortedStarts.unshift({
+        type: sortedStarts[0]?.type,
+        source: openEnd.source,
+        text: openEnd.text,
+        time: this.timeframe[0].toISOString(),
+        ts: frameStart,
+        id: 'synthetic-start',
+      });
+    }
+
+    this.devLog('buildEventBlocks » events', { sortedStarts, sortedEnds });
+
+    return sortedStarts.map((start, i) => {
+      const startTime = Math.max(start.ts, frameStart);
+      let endTime: number;
+
+      // Case 1: matching end-event
+      if (endIndex < sortedEnds.length && sortedEnds[endIndex].ts > startTime) {
+        endTime = sortedEnds[endIndex].ts;
+        endIndex++;
       }
-    }
-  }
-
-  private detectTimeframe(startDate: Date, endDate: Date) {
-    const diffInHours = differenceInHours(endDate, startDate);
-    const diffInDays = differenceInDays(endDate, startDate);
-
-    if (diffInHours <= 1) {
-      return 'MINUTE';
-    } else if (diffInDays <= 1) {
-      return 'HOUR';
-    } else {
-      return 'DAY';
-    }
-  }
-
-  refresh(): void {
-    this.loadChartData();
-    this.countdownIntervalComponent?.reset();
-  }
-
-  onCountdownEnded(): void {
-    this.loadChartData();
-    this.countdownIntervalComponent?.reset();
-  }
-
-  async loadChartData() {
-    if (!this.startDate || !this.endDate) {
-      return;
-    }
-    this.series = [];
-    if (has(this.config, 'device')) {
-      try {
-        const categories: string[] = [];
-        this.config.types.forEach((type) => {
-          categories.push(type.type);
-        });
-        // @ts-ignore
-        this.series = await this.prepareChartData(this.startDate!, this.endDate!);
-
-        this.chartOptions = {
-          tooltip: {
-            formatter: (item: echarts.DefaultLabelFormatterCallbackParams) => {
-              const event = this.series[item.seriesIndex!].data[item.dataIndex];
-              const [, startDate, endDate, duration] = item.value as number[];
-
-              return (
-                `<b>Text:</b> ${event.name}<br/>` +
-                `<b>Start date:</b> ${this.datePipe.transform(startDate)}<br/>` +
-                `<b>End date:</b> ${this.datePipe.transform(endDate)}<br/>` +
-                `<b>Duration:</b> ca. ${formatDistance(0, duration, {
-                  includeSeconds: true,
-                })}`
-              );
-            },
-          },
-
-          dataZoom: [
-            {
-              type: 'slider',
-              filterMode: 'weakFilter',
-              showDataShadow: false,
-              bottom: 10,
-              labelFormatter: '',
-            },
-            {
-              type: 'inside',
-              filterMode: 'weakFilter',
-            },
-          ],
-          legend: {
-            top: 10,
-          },
-          grid: {
-            left: '3%',
-            right: 24,
-            containLabel: true,
-          },
-          xAxis: {
-            min: this.startDate.getTime(),
-            scale: true,
-            axisLabel: {
-              formatter: (val: number) => this.xAxisFormatter(val, this.isWithinRange),
-            },
-          },
-          yAxis: {
-            data: categories,
-          },
-          series: <any>this.series,
-        };
-      } catch (e) {
-        console.error(e);
+      // Case 2: next start-event
+      else if (i + 1 < sortedStarts.length) {
+        endTime = sortedStarts[i + 1].ts;
       }
-    }
+      // Case 3: end of timeframe
+      else {
+        endTime = frameEnd;
+      }
+
+      endTime = Math.min(endTime, frameEnd);
+
+      return {
+        label: start.text,
+        start: startTime, // display purposes
+        end: endTime,
+        blockStart: startTime, // chart block generation
+        blockEnd: endTime,
+        duration: endTime - startTime,
+      };
+    });
   }
 
-  xAxisFormatter(value: number, isWithinRange: TimeRange): string {
-    if (isWithinRange === 'HOUR') {
-      return this.datePipe.transform(value, 'HH:mm') || '';
-    } else if (isWithinRange === 'MINUTE') {
-      return this.datePipe.transform(value, 'HH:mm:ss') || '';
-    }
-    return this.datePipe.transform(value, 'MMM d, HH:mm') || '';
-  }
-
-  async prepareChartData(timeBoxStart: Date, timeBoxEnd: Date) {
-    const series = [];
-
-    for (const [index, type] of this.config.types.entries()) {
-      const custom = await this.eventStatusService.fetchAndPrepareEvents(
-        this.config.device.id,
-        type,
-        index,
-        timeBoxStart,
-        timeBoxEnd
-      );
-
-      // @ts-ignore
-      series.push(...this.eventStatusService.toSeries(custom, this.renderItem, type.values));
-    }
-    return series;
-  }
-
-  renderItem = (
-    params: echarts.CustomSeriesRenderItemParams,
-    api: echarts.CustomSeriesRenderItemAPI
-  ) => {
-    const barSize = this.config.barScale || EVENT_STATUS__BAR_SCALE_DEFAULT;
-    const categoryIndex = api.value(0);
-    const start = api.coord([api.value(1), categoryIndex]);
-    const end = api.coord([api.value(2), categoryIndex]);
-    // @ts-ignore
-    const height = api.size([0, 1])[1] * (barSize / 100);
-    const rectShape = echarts.graphic.clipRectByRect(
-      {
-        x: start[0],
-        y: start[1] - height / 2,
-        width: end[0] - start[0],
-        height: height,
+  private buildChartOptions(blocks: EventBlock[]): EChartsOption {
+    return {
+      tooltip: {
+        formatter: (params: any) => {
+          const [, start, end, duration] = params.value;
+          return `
+            <strong style="max-width:300px;display:block;overflow:hidden;text-overflow:ellipsis">${params.name}</strong>
+            Start: ${this.datePipe.transform(start)}<br/>
+            End: ${this.datePipe.transform(end)}<br/>
+            Duration: ${formatDistance(0, duration, {
+              includeSeconds: true,
+            })}
+          `;
+        },
       },
-      {
-        x: (<any>params.coordSys).x,
-        y: (<any>params.coordSys).y,
-        width: (<any>params.coordSys).width,
-        height: (<any>params.coordSys).height,
-      }
-    );
 
-    return (
-      rectShape && {
-        type: 'rect',
-        transition: ['shape'],
-        shape: rectShape,
-        style: api.style(),
-      }
-    );
-  };
+      dataZoom: [
+        {
+          type: 'slider',
+          filterMode: 'weakFilter',
+          showDataShadow: false,
+          bottom: 10,
+        },
+        {
+          type: 'inside',
+          filterMode: 'weakFilter',
+        },
+      ],
+
+      grid: {
+        left: 24,
+        right: 32,
+        top: 16,
+        containLabel: true,
+      },
+
+      xAxis: {
+        type: 'time',
+        min: this.timeframe[0].getTime(),
+        max: this.timeframe[1].getTime(),
+        // scale: true
+        axisLabel: {
+          formatter: (val: number) => this.xAxisFormatter(val),
+        },
+        splitLine: {
+          show: this.config.splitLines || false,
+        },
+      },
+
+      yAxis: {
+        type: 'category',
+        data: [this.config.label],
+      },
+
+      series: blocks.map((block) => ({
+        type: 'custom',
+        name: block.label,
+        encode: { x: [1, 2], y: 0 },
+
+        renderItem: (params: any, api: any) => {
+          const y = api.coord([0, 0])[1];
+          const xStart = api.coord([block.start, 0])[0];
+          const xEnd = api.coord([block.end, 0])[0];
+          const height = api.size([0, 1])[1] * (this.config.barScale / 100);
+
+          return {
+            type: 'rect',
+            shape: {
+              x: xStart,
+              y: y - height / 2,
+              width: xEnd - xStart,
+              height,
+            },
+            style: api.style({
+              fill: this.config.color,
+              opacity: 0.9,
+            }),
+          };
+        },
+
+        data: [
+          {
+            name: block.label,
+            value: [0, block.start, block.end, block.duration],
+          },
+        ],
+      })),
+    };
+  }
+
+  private xAxisFormatter(value: number): string {
+    const date = new Date(value);
+    const time = date.getHours() * 60 + date.getMinutes();
+    const format = time === 0 ? 'MMM d' : 'HH:mm';
+
+    return this.datePipe.transform(date, format) as string;
+  }
+
+  private async fetchEvents(start: string, end: string): Promise<void> {
+    const [starts, ends] = await Promise.all([
+      this.eventStatusTrackerService.fetchEvents(this.deviceId, start, this.timeframe),
+      this.eventStatusTrackerService.fetchEvents(this.deviceId, end, this.timeframe),
+    ]);
+
+    this.startEvents = starts;
+    this.endEvents = ends;
+  }
 }

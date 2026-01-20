@@ -1,22 +1,16 @@
+import { IEvent } from "@c8y/client";
+
 export const EVENT_STATUS__BAR_SCALE_DEFAULT = 20;
 
-export type EventStatusTrackerConfig = {
+export interface EventStatusTrackerConfig {
   device: {
     id: string;
     name: string;
   };
-  types: EventTypeConfig[];
-  barScale?: number;
-};
-
-export type EventConfig = {
-  name: string;
-  color: string;
+  barScale: number;
   label: string;
-};
-
-export type EventTypeConfig = {
-  type: string;
-  values: EventConfig[];
-  endFragment?: string;
+  color: string;
+  start: IEvent['type'];
+  end: IEvent['type'];
+  splitLines: boolean;
 };

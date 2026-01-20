@@ -1,137 +1,80 @@
-<!--bar size -->
-<div class="m-t-16">
-  <div class="form-group flex-grow d-flex a-i-center">
-    <label for="scale" translate>Event Bar Scale</label>
-    <c8y-range class="m-l-16" style="flex: 1 1 auto" [ngModel]="config.barScale">
-      <ng-template #c8yRangeValue>
-        <span>{{ config.barScale }}% </span>
-      </ng-template>
-      <input
-        id="scale"
-        type="range"
-        min="0"
-        max="100"
-        steps="1"
-        [(ngModel)]="config.barScale"
-      />
-    </c8y-range>
+<div class="form-group flex-grow d-flex a-i-center">
+  <label for="scale" translate>Event Bar Scale</label>
+  <c8y-range class="m-l-16" style="flex: 1 1 auto" [ngModel]="config.barScale">
+    <ng-template #c8yRangeValue>
+      <span>{{ config.barScale }}% </span>
+    </ng-template>
+    <input
+      id="scale"
+      name="scale"
+      type="range"
+      min="0"
+      max="100"
+      steps="1"
+      [(ngModel)]="config.barScale"
+    />
+  </c8y-range>
+</div>
+
+<div class="form-group">
+  <label class="c8y-switch">
+    <input
+      type="checkbox"
+      name="splitlines"
+      [(ngModel)]="config.splitLines"
+    />
+    <span></span>
+    {{ 'Show Split Lines' | translate }}
+  </label>
+</div>
+
+<hr>
+
+<div class="d-flex a-i-end">
+  <div class="form-group flex-grow">
+    <label for="event-status-label" translate>Label</label>
+    <input
+      id="event-status-label"
+      type="text"
+      class="form-control"
+      [(ngModel)]="config.label"
+      name="label"
+      placeholder="e.g. Product A"
+    />
+  </div>
+
+  <div class="form-group m-l-16">
+    <label for="event-status-color" translate>Color</label>
+    <input
+      id="event-status-color"
+      type="color"
+      class="form-control form-control-color"
+      [(ngModel)]="config.color"
+    />
   </div>
 </div>
 
-<hr />
 
-<!-- event types list -->
-@for (eventType of config.types; track eventType; let i = $index) {
-  <div class="card">
-    <div class="card-header d-block separator">
-      <!-- event type -->
-      <div class="form-inline d-flex">
-        <div class="form-group flex-grow d-flex a-i-center">
-          <label for="type-{{ i }}" translate>Event Type</label>
-          <input
-            id="type-{{ i }}"
-            type="text"
-            class="form-control flex-grow"
-            [(ngModel)]="eventType.type"
-            name="type-{{ i }}"
-            required
-            placeholder="e.g. Path-PathExecution"
-          />
-        </div>
+<div class="form-group">
+  <label for="event-status-start" translate>Start Event Type</label>
+  <input
+    id="event-status-start"
+    type="text"
+    class="form-control"
+    [(ngModel)]="config.start"
+    placeholder="e.g. cycle-start"
+  />
+</div>
 
-        @if (config.types.length > 1) {
-          <button type="button" class="btn btn-icon text-danger" (click)="removeEventType(i)">
-            <i [c8yIcon]="'delete'"></i>
-          </button>
-        }
-      </div>
-
-      <!-- event end fragment -->
-      <div class="m-t-16">
-        <label class="c8y-switch">
-          <input [(ngModel)]="eventHasEndFragment[i]" type="checkbox" checked="checked" />
-          <span></span>
-          use Fragment for Event End
-        </label>
-      </div>
-
-      @if (eventHasEndFragment[i]) {
-        <div class="m-t-8">
-          <div class="form-group">
-            <label for="type-end-{{ i }}" translate>Event End-Fragment</label>
-            <input
-              id="type-end-{{ i }}"
-              type="text"
-              class="form-control"
-              [(ngModel)]="eventType.endFragment"
-            />
-          </div>
-        </div>
-      }
-    </div>
-
-    <!-- event text(s) list -->
-    @for (value of eventType.values; track value; let j = $index) {
-      <div class="card-block d-flex a-i-end">
-        <div class="form-group">
-          <label for="value-name-{{ i }}-{{ j }}" translate>Event Text</label>
-          <input
-            id="value-name-{{ i }}-{{ j }}"
-            type="text"
-            class="form-control"
-            [(ngModel)]="value.name"
-            name="value-{{ i }}-{{ j }}"
-            placeholder="e.g. READY"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="value-label-{{ i }}-{{ j }}" translate>Label</label>
-          <input
-            id="value-label-{{ i }}-{{ j }}"
-            type="text"
-            class="form-control"
-            [(ngModel)]="value.label"
-            placeholder="Display label"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="value-color-{{ i }}-{{ j }}" translate>Color</label>
-          <input
-            id="value-color-{{ i }}-{{ j }}"
-            type="color"
-            class="form-control form-control-color"
-            [(ngModel)]="value.color"
-          />
-        </div>
-
-        @if (eventType.values.length > 1) {
-          <button
-            (click)="removeValue(i, j)"
-            class="btn btn-icon text-danger"
-            title="Remove Event Text"
-          >
-            <i c8yIcon="minus-circle"></i>
-          </button>
-        }
-      </div>
-
-      @if (j === eventType.values.length - 1) {
-        <div class="p-t-8 p-b-8 separator-top text-center">
-          <button type="button" (click)="addValue(i)" class="btn btn-sm btn-default" translate>
-            Add Event Text
-          </button>
-        </div>
-      }
-    }
-  </div>
-}
-
-<div class="text-center">
-  <button type="button" class="btn btn-primary" (click)="addEventType()" translate>
-    Add Event Type
-  </button>
+<div class="form-group">
+  <label for="event-status-end" translate>End Event Type</label>
+  <input
+    id="event-status-end"
+    type="text"
+    class="form-control"
+    [(ngModel)]="config.end"
+    placeholder="e.g. cycle-end"
+  />
 </div>
 
 <!-- preview -->
