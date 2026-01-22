@@ -9,9 +9,9 @@ import * as echartsCore from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { TooltipModule } from 'ngx-bootstrap/tooltip';
 import { NgxEchartsDirective, provideEchartsCore } from 'ngx-echarts';
+import { debounceTime, Subject } from 'rxjs';
 import { EventStatusTrackerConfig } from '../model/event-status-tracker';
 import { EventStatusTrackerService } from './event-status-tracker.service';
-import { debounceTime, Subject } from 'rxjs';
 
 echartsCore.use([
   BarChart,
@@ -26,9 +26,9 @@ interface EventBlock {
   label: string;
   start: number;
   end: number;
-  blockStart: number;
-  blockEnd: number;
-  duration: number;
+  blockStart?: number;
+  blockEnd?: number;
+  duration?: number;
   color?: string;
 }
 
@@ -62,9 +62,7 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy
   private reloadSubject = new Subject<void>();
 
   constructor() {
-    this.reloadSubject
-      .pipe(debounceTime(this.reloadTimeout))
-      .subscribe(() => this.performReload());
+    this.reloadSubject.pipe(debounceTime(this.reloadTimeout)).subscribe(() => this.performReload());
   }
 
   async ngOnChanges(changes: any): Promise<void> {
@@ -88,87 +86,18 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy
     this.reloadSubject.next();
   }
 
-  private async performReload(): Promise<void> {
-    await this.fetchEvents(this.config.start, this.config.end);
-
-    const blocks = this.buildEventBlocks(this.startEvents, this.endEvents, this.timeframe);
-
-    this.chartOptions = this.buildChartOptions(blocks);
-  }
-
   private devLog(...args: any[]): void {
     if (this.isDev) {
       console.log(...args);
     }
   }
 
-  private buildEventBlocks(
-    starts: IEvent[],
-    ends: IEvent[],
-    timeframe: [Date, Date]
-  ): EventBlock[] {
-    this.devLog('buildEventBlocks', { starts, ends, timeframe });
+  private async performReload(): Promise<void> {
+    await this.fetchEvents(this.config.start, this.config.end);
 
-    const [frameStart, frameEnd] = timeframe.map((d) => d.getTime());
+    const blocks = await this.buildEventBlocks(this.startEvents, this.endEvents, this.timeframe);
 
-    const sortedStarts = [...starts]
-      .map((e) => ({ ...e, ts: Date.parse(e.time) }))
-      .filter((e) => e.ts <= frameEnd)
-      .sort((a, b) => a.ts - b.ts);
-
-    const sortedEnds = [...ends]
-      .map((e) => ({ ...e, ts: Date.parse(e.time) }))
-      .filter((e) => e.ts >= frameStart)
-      .sort((a, b) => a.ts - b.ts);
-
-    let endIndex = 0;
-
-    // first end has no matching start – generate artificial start to fill timeframe
-    if (sortedStarts.length < sortedEnds.length) {
-      console.log('artificial start added');
-      const openEnd = sortedEnds[0];
-
-      sortedStarts.unshift({
-        type: sortedStarts[0]?.type,
-        source: openEnd.source,
-        text: openEnd.text,
-        time: this.timeframe[0].toISOString(),
-        ts: frameStart,
-        id: 'synthetic-start',
-      });
-    }
-
-    this.devLog('buildEventBlocks » events', { sortedStarts, sortedEnds });
-
-    return sortedStarts.map((start, i) => {
-      const startTime = Math.max(start.ts, frameStart);
-      let endTime: number;
-
-      // Case 1: matching end-event
-      if (endIndex < sortedEnds.length && sortedEnds[endIndex].ts > startTime) {
-        endTime = sortedEnds[endIndex].ts;
-        endIndex++;
-      }
-      // Case 2: next start-event
-      else if (i + 1 < sortedStarts.length) {
-        endTime = sortedStarts[i + 1].ts;
-      }
-      // Case 3: end of timeframe
-      else {
-        endTime = frameEnd;
-      }
-
-      endTime = Math.min(endTime, frameEnd);
-
-      return {
-        label: start.text,
-        start: startTime, // display purposes
-        end: endTime,
-        blockStart: startTime, // chart block generation
-        blockEnd: endTime,
-        duration: endTime - startTime,
-      };
-    });
+    this.chartOptions = this.buildChartOptions(blocks);
   }
 
   private buildChartOptions(blocks: EventBlock[]): EChartsOption {
@@ -232,8 +161,8 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy
 
         renderItem: (params: any, api: any) => {
           const y = api.coord([0, 0])[1];
-          const xStart = api.coord([block.start, 0])[0];
-          const xEnd = api.coord([block.end, 0])[0];
+          const xStart = api.coord([block.blockStart, 0])[0];
+          const xEnd = api.coord([block.blockEnd, 0])[0];
           const height = api.size([0, 1])[1] * (this.config.barScale / 100);
 
           return {
@@ -277,5 +206,106 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy
 
     this.startEvents = starts;
     this.endEvents = ends;
+  }
+
+  private async buildEventBlocks(
+    starts: IEvent[],
+    ends: IEvent[],
+    timeFrame: [Date, Date]
+  ): Promise<EventBlock[]> {
+    const startType = starts[0].type;
+    const endType = ends[0].type;
+
+    const mergedEvents = this.sortEventsByTime([...starts, ...ends]);
+    this.devLog(mergedEvents);
+    const blocks = this.generateEventBlocks(mergedEvents, startType, endType);
+    this.devLog(blocks);
+
+    if (!blocks[0].start)
+      blocks[0].start = await this.fetchSingleEventTime(
+        startType,
+        new Date(0),
+        timeFrame[0],
+        false
+      );
+    if (!!blocks.slice(-1)[0] && !blocks.at(-1)?.end) {
+      blocks.slice(-1)[0].end = await this.fetchSingleEventTime(endType, timeFrame[1]);
+    }
+    // dedupe?
+
+    return this.generateDurations(blocks, timeFrame);
+  }
+
+  private sortEventsByTime(events: IEvent[]): IEvent[] {
+    return (events = [...events]
+      .map((e) => ({ ...e, ts: Date.parse(e.time) }))
+      .sort((a, b) => a.ts - b.ts));
+  }
+
+  private generateEventBlocks(
+    mergedEvents: IEvent[],
+    startType: IEvent['type'],
+    endType: IEvent['type']
+  ): EventBlock[] {
+    const blocks: EventBlock[] = [];
+    let prevType = '';
+    let blockIndex = -1;
+
+    mergedEvents.forEach((event, index) => {
+      let block: Partial<EventBlock> = {
+        label: event.text,
+        color: this.config.color,
+      };
+
+      if (event.type === startType) block.start = this.getUnixTime(event.time);
+      if (event.type === endType) block.end = this.getUnixTime(event.time);
+
+      if (index > 0 && event.type === endType && event.type !== prevType) {
+        blocks[blockIndex].end = this.getUnixTime(event.time);
+      } else {
+        blocks.push(block as EventBlock);
+        blockIndex++;
+      }
+
+      prevType = event.type;
+    });
+
+    return blocks;
+  }
+
+  private getUnixTime(time: Date | string): number {
+    return new Date(time).getTime();
+  }
+
+  private async fetchSingleEventTime(
+    type: IEvent['type'],
+    from: Date,
+    to = new Date(),
+    revert = true
+  ): Promise<number> {
+    const event = await this.eventStatusTrackerService.fetchEvents(
+      this.deviceId,
+      this.config.start,
+      [from, to],
+      1,
+      revert
+    );
+
+    return this.getUnixTime(event[0]?.time);
+  }
+
+  private generateDurations(blocks: EventBlock[], timeFrame: [Date, Date]): EventBlock[] {
+    const [timeFrameStart, timeFrameEnd] = timeFrame.map((t) => this.getUnixTime(t));
+
+    return blocks.map((block, index) => {
+      if (!block.start) block.start = blocks[index - 1].end;
+      if (!block.end) block.end = blocks[index + 1].start;
+
+      block.duration = block.end - block.start;
+      block.blockStart = block.start < timeFrameStart ? timeFrameStart : block.start;
+      block.blockEnd = block.end > timeFrameEnd ? timeFrameEnd : block.end;
+
+      return block;
+    });
   }
 }
