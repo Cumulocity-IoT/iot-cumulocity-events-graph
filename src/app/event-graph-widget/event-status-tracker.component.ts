@@ -213,8 +213,8 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy
     ends: IEvent[],
     timeFrame: [Date, Date]
   ): Promise<EventBlock[]> {
-    const startType = starts[0].type;
-    const endType = ends[0].type;
+    const startType = this.config.start;
+    const endType = this.config.end;
 
     const mergedEvents = this.sortEventsByTime([...starts, ...ends]);
     this.devLog(mergedEvents);
@@ -299,7 +299,9 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy
 
     return blocks.map((block, index) => {
       if (!block.start) block.start = blocks[index - 1].end;
-      if (!block.end) block.end = blocks[index + 1].start;
+      if (!block.end) block.end = blocks[index + 1] ? blocks[index + 1].start : timeFrameEnd;
+
+      this.devLog(`Block ${index}: start=${block.start}, end=${block.end}`);
 
       block.duration = block.end - block.start;
       block.blockStart = block.start < timeFrameStart ? timeFrameStart : block.start;
