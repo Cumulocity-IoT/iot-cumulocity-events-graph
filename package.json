@@ -4,7 +4,7 @@
   "description": "",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve -u https://psfactory.eu-latest.cumulocity.com/ --shell clean-cockpit-1022",
+    "start": "ng serve -u https://psfactory.eu-latest.cumulocity.com/ --shell cockpit2026lts",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
@@ -16,50 +16,57 @@
     "Graph",
     "widget"
   ],
-  "author": "Hendrik Naether | Felix Lange",
+  "author": "Hendrik Naether | Felix Lange | @dirk-peter-c8y",
   "license": "Apache 2.0",
+  "prettier": {
+    "printWidth": 100,
+    "singleQuote": true,
+    "overrides": [
+      {
+        "files": "*.html",
+        "options": {
+          "parser": "angular"
+        }
+      }
+    ]
+  },
   "dependencies": {
-    "@angular/animations": "^19.0.0",
-    "@angular/cdk": "^19.2.19",
-    "@angular/common": "^19.0.0",
-    "@angular/compiler": "^19.0.0",
-    "@angular/core": "^19.0.0",
-    "@angular/forms": "^19.0.0",
-    "@angular/platform-browser": "^19.0.0",
-    "@angular/platform-browser-dynamic": "^19.0.0",
-    "@angular/router": "^19.0.0",
-    "@c8y/bootstrap": "1022.33.0",
-    "@c8y/client": "1022.33.0",
-    "@c8y/ngx-components": "1022.33.0",
-    "@c8y/style": "1022.33.0",
-    "ngx-bootstrap": "19.0.2",
-    "rxjs": "7.8.1",
+    "@angular/animations": "^20.3.24",
+    "@angular/cdk": "^20.2.14",
+    "@angular/common": "^20.3.0",
+    "@angular/compiler": "^20.3.0",
+    "@angular/core": "^20.3.0",
+    "@angular/forms": "^20.3.0",
+    "@angular/platform-browser": "^20.3.0",
+    "@angular/router": "^20.3.0",
+    "@c8y/bootstrap": "1023.14.208",
+    "@c8y/client": "1023.14.208",
+    "@c8y/ngx-components": "1023.14.208",
+    "@c8y/style": "1023.14.208",
+    "date-fns": "^4.4.0",
+    "echarts": "^6.1.0",
+    "monaco-editor": "~0.53.0",
+    "ngx-bootstrap": "20.0.2",
+    "ngx-color-picker": "^20.1.1",
+    "ngx-echarts": "^20.0.2",
+    "rxjs": "7.8.2",
     "tslib": "^2.3.0",
-    "zone.js": "~0.15.0",
-    "date-fns": "^2.30.0",
-    "echarts": "^5.4.2",
-    "ngx-color-picker": "^17.0.0",
-    "ngx-echarts": "^19.0.0"
+    "zone.js": "~0.15.0"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "^19.0.7",
-    "@angular/cli": "^19.0.7",
-    "@angular/compiler-cli": "^19.0.0",
-    "@c8y/devkit": "1022.33.0",
-    "@c8y/options": "1022.33.0",
+    "@angular/build": "^20.3.35",
+    "@angular/cli": "^20.3.35",
+    "@angular/compiler-cli": "^20.3.0",
+    "@c8y/devkit": "1023.14.208",
+    "@c8y/options": "1023.14.208",
     "@types/jasmine": "~5.1.0",
-    "jasmine-core": "~5.4.0",
+    "jasmine-core": "~5.9.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
     "karma-coverage": "~2.2.0",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
-    "typescript": "~5.6.2",
-    "@types/lodash": "^4.14.194",
-    "@typescript-eslint/eslint-plugin": "^5.42.1",
-    "@typescript-eslint/parser": "^5.42.1",
-    "eslint": "^8.7.0",
-    "eslint-config-prettier": "^8.3.0",
-    "eslint-plugin-prettier": "^3.4.0"
+    "less": "^4.2.0",
+    "typescript": "~5.9.2"
   }
 }

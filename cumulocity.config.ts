@@ -21,7 +21,7 @@ export default {
         name: 'Event Graph Widget',
         module: 'EventsGraphModule',
         path: './src/app/event-graph-widget/event-graph.module.ts',
-        description: 'Display markers on a indoor map and their datapoints',
+        description: 'Show event occurrence in a timeline chart.',
       },
     ],
   },

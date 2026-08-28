@@ -37,6 +37,8 @@ async function loadConfigComponent() {
           widgetDefaults: {
             _width: 12,
             _height: 5,
+            widgetInstanceGlobalTimeContext: true,
+            canDecoupleGlobalTimeContext: true,
           },
           ng1: {
             options: {

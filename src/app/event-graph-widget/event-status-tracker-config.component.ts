@@ -15,11 +15,9 @@ import { EventStatusTrackerComponent } from './event-status-tracker.component';
   styleUrl: './event-status-tracker-config.component.css',
 })
 export class EventStatusTrackerWidgetConfig implements OnInit, DynamicComponent {
-  @Input() config: EventStatusTrackerConfig & GlobalTimeContextWidgetConfig;
+  @Input() config!: EventStatusTrackerConfig & GlobalTimeContextWidgetConfig;
 
   widgetConfigService = inject(WidgetConfigService);
-  // config.widgetInstanceGlobalTimeContext = true;
-  // config.canDecoupleGlobalTimeContext = true;
 
   @ViewChild('preview')
   set previewMapSet(template: TemplateRef<any>) {
@@ -29,12 +27,14 @@ export class EventStatusTrackerWidgetConfig implements OnInit, DynamicComponent 
       this.widgetConfigService.setPreview(template);
       return;
     }
-    // @ts-expect-error - setPreview expects TemplateRef but we need to clear it
     this.widgetConfigService.setPreview(null);
   }
 
   ngOnInit() {
     if (!this.config.barScale) this.config.barScale = EVENT_STATUS__BAR_SCALE_DEFAULT;
     if (!this.config.splitLines) this.config.splitLines = false;
+
+    this.config.widgetInstanceGlobalTimeContext = true;
+    this.config.canDecoupleGlobalTimeContext = true;
   }
 }

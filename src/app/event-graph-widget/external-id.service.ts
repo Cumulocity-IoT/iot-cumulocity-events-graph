@@ -1,6 +1,5 @@
 import { Injectable } from '@angular/core';
 import { IdentityService } from '@c8y/client';
-import { isEmpty } from 'lodash';
 
 @Injectable({ providedIn: 'root' })
 export class ExternalIdService {
@@ -16,7 +15,7 @@ export class ExternalIdService {
     // Otherwise, make the request
     try {
       const { data } = await this.identityService.list(managedObjectId);
-      if (!isEmpty(data)) {
+      if (data.length > 0) {
         const externalId = data[0].externalId;
 
         // Store the result in the cache
