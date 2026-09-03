@@ -1,6 +1,13 @@
 import { Component, inject, Input, OnChanges, OnDestroy, OnInit } from '@angular/core';
 import { IEvent, IManagedObject } from '@c8y/client';
-import { CoreModule, DatePipe } from '@c8y/ngx-components';
+import { CoreModule, DashboardChildComponent, DatePipe } from '@c8y/ngx-components';
+import {
+  CONTEXT_FEATURE,
+  GlobalContextConnectorComponent,
+  GlobalContextState,
+  PRESET_NAME,
+  PresetDefinition,
+} from '@c8y/ngx-components/global-context';
 import { formatDistance } from 'date-fns';
 import { EChartsOption } from 'echarts';
 import { BarChart, CustomChart } from 'echarts/charts';
@@ -10,8 +17,8 @@ import { CanvasRenderer } from 'echarts/renderers';
 import { TooltipModule } from 'ngx-bootstrap/tooltip';
 import { NgxEchartsDirective, provideEchartsCore } from 'ngx-echarts';
 import { debounceTime, Subject } from 'rxjs';
-import { EventStatusTrackerConfig } from '../model/event-status-tracker';
-import { EventStatusTrackerService } from './event-status-tracker.service';
+import { EventStatusTrackerConfig } from '../../model/event-status-tracker';
+import { EventStatusTrackerService } from '../event-status-tracker.service';
 
 echartsCore.use([
   BarChart,
@@ -32,20 +39,33 @@ interface EventBlock {
   color?: string;
 }
 
+const eventGraphControlPreset: PresetDefinition = {
+  dashboard: [CONTEXT_FEATURE.LIVE_TIME, CONTEXT_FEATURE.HISTORY_TIME, CONTEXT_FEATURE.AUTO_REFRESH],
+  config: [CONTEXT_FEATURE.LIVE_TIME, CONTEXT_FEATURE.HISTORY_TIME, CONTEXT_FEATURE.AUTO_REFRESH],
+  view_and_config: [
+    CONTEXT_FEATURE.LIVE_TIME,
+    CONTEXT_FEATURE.HISTORY_TIME,
+    CONTEXT_FEATURE.AUTO_REFRESH,
+  ],
+};
+
 @Component({
   selector: 'c8y-event-status',
   templateUrl: './event-status-tracker.component.html',
   styleUrls: ['./event-status-tracker.component.css'],
-  imports: [CoreModule, TooltipModule, NgxEchartsDirective],
+  imports: [CoreModule, TooltipModule, NgxEchartsDirective, GlobalContextConnectorComponent],
   standalone: true,
   providers: [provideEchartsCore({ echarts: echartsCore })],
 })
 export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy {
   private eventStatusTrackerService = inject(EventStatusTrackerService);
   private datePipe = inject(DatePipe);
+  readonly dashboardChild = inject(DashboardChildComponent, { optional: true });
 
-  @Input() config: EventStatusTrackerConfig;
+  @Input() config!: EventStatusTrackerConfig;
   @Input() isInPreviewMode = false;
+
+  readonly connectorControls = eventGraphControlPreset;
 
   // from config
   deviceId!: IManagedObject['id'];
@@ -68,10 +88,15 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy
   async ngOnChanges(changes: any): Promise<void> {
     this.deviceId = this.config.device?.id as IManagedObject['id'];
 
-    if (!changes?.config?.currentValue?.date) return;
-    this.timeframe = changes.config.currentValue.date;
+    const nextTimeframe = this.getTimeframeFromConfig(changes?.config?.currentValue ?? this.config);
+    if (!nextTimeframe) return;
 
-    this.reloadSubject.next();
+    const timeframeChanged = !this.areTimeframesEqual(this.timeframe, nextTimeframe);
+    this.timeframe = nextTimeframe;
+
+    if (timeframeChanged) {
+      this.reloadSubject.next();
+    }
   }
 
   ngOnInit(): void {
@@ -80,6 +105,25 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy
 
   ngOnDestroy(): void {
     this.reloadSubject.complete();
+  }
+
+  onContextChange(event: { context: GlobalContextState; diff: GlobalContextState }): void {
+    const nextConfig = event.context;
+
+    Object.assign(this.config, nextConfig);
+
+    if (nextConfig.dateTimeContext) {
+      this.config.date = [nextConfig.dateTimeContext.dateFrom, nextConfig.dateTimeContext.dateTo];
+    }
+
+    const nextTimeframe = this.getTimeframeFromConfig(this.config);
+
+    if (!nextTimeframe || this.areTimeframesEqual(this.timeframe, nextTimeframe)) {
+      return;
+    }
+
+    this.timeframe = nextTimeframe;
+    this.reloadSubject.next();
   }
 
   reload(): void {
@@ -93,6 +137,10 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy
   }
 
   private async performReload(): Promise<void> {
+    if (!this.timeframe?.[0] || !this.timeframe?.[1] || !this.deviceId) {
+      return;
+    }
+
     await this.fetchEvents(this.config.start, this.config.end);
 
     const blocks = await this.buildEventBlocks(this.startEvents, this.endEvents, this.timeframe);
@@ -211,7 +259,7 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy
   private async buildEventBlocks(
     starts: IEvent[],
     ends: IEvent[],
-    timeFrame: [Date, Date]
+    timeFrame: [Date, Date],
   ): Promise<EventBlock[]> {
     const startType = this.config.start;
     const endType = this.config.end;
@@ -221,13 +269,18 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy
     const blocks = this.generateEventBlocks(mergedEvents, startType, endType);
     this.devLog(blocks);
 
-    if (!blocks[0].start)
+    if (!blocks.length) {
+      return [];
+    }
+
+    if (!blocks[0].start) {
       blocks[0].start = await this.fetchSingleEventTime(
         startType,
         new Date(0),
         timeFrame[0],
-        false
+        false,
       );
+    }
     if (!!blocks.slice(-1)[0] && !blocks.at(-1)?.end) {
       blocks.slice(-1)[0].end = await this.fetchSingleEventTime(endType, timeFrame[1]);
     }
@@ -245,7 +298,7 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy
   private generateEventBlocks(
     mergedEvents: IEvent[],
     startType: IEvent['type'],
-    endType: IEvent['type']
+    endType: IEvent['type'],
   ): EventBlock[] {
     const blocks: EventBlock[] = [];
     let prevType = '';
@@ -277,18 +330,83 @@ export class EventStatusTrackerComponent implements OnInit, OnChanges, OnDestroy
     return new Date(time).getTime();
   }
 
+  get contextConfig(): GlobalContextState {
+    const timeframe = this.getTimeframeFromConfig(this.config);
+
+    return {
+      dateTimeContext:
+        this.config.dateTimeContext ??
+        (timeframe
+          ? {
+              dateFrom: timeframe[0],
+              dateTo: timeframe[1],
+              interval: 'hours',
+            }
+          : undefined),
+      aggregation: this.config.aggregation,
+      isAutoRefreshEnabled: this.config.isAutoRefreshEnabled,
+      refreshInterval: this.config.refreshInterval,
+      refreshOption: this.config.refreshOption,
+      displayMode: this.config.displayMode,
+      source: this.config.source,
+      eventSourceId: this.config.eventSourceId,
+      isGlobalContextReady: this.config.isGlobalContextReady,
+    };
+  }
+
+  get isLinkedToGlobal(): boolean {
+    return this.config.widgetInstanceGlobalTimeContext ?? true;
+  }
+
+  private getTimeframeFromConfig(config?: EventStatusTrackerConfig): [Date, Date] | null {
+    return this.normalizeDateTimeContext(config?.dateTimeContext) ?? this.normalizeTimeframe(config?.date);
+  }
+
+  private normalizeTimeframe(timeframe: unknown): [Date, Date] | null {
+    if (!Array.isArray(timeframe) || timeframe.length !== 2 || !timeframe[0] || !timeframe[1]) {
+      return null;
+    }
+
+    const normalizedTimeframe: [Date, Date] = [new Date(timeframe[0]), new Date(timeframe[1])];
+
+    if (normalizedTimeframe.some(value => Number.isNaN(value.getTime()))) {
+      return null;
+    }
+
+    return normalizedTimeframe;
+  }
+
+  private normalizeDateTimeContext(dateTimeContext: GlobalContextState['dateTimeContext']): [Date, Date] | null {
+    if (!dateTimeContext?.dateFrom || !dateTimeContext?.dateTo) {
+      return null;
+    }
+
+    return this.normalizeTimeframe([dateTimeContext.dateFrom, dateTimeContext.dateTo]);
+  }
+
+  private areTimeframesEqual(
+    left?: [Date, Date],
+    right?: [Date, Date],
+  ): boolean {
+    if (!left || !right) {
+      return false;
+    }
+
+    return left[0].getTime() === right[0].getTime() && left[1].getTime() === right[1].getTime();
+  }
+
   private async fetchSingleEventTime(
     type: IEvent['type'],
     from: Date,
     to = new Date(),
-    revert = true
+    revert = true,
   ): Promise<number> {
     const event = await this.eventStatusTrackerService.fetchEvents(
       this.deviceId,
       this.config.start,
       [from, to],
       1,
-      revert
+      revert,
     );
 
     return this.getUnixTime(event[0]?.time);

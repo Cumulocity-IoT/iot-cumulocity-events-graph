@@ -1,0 +1,25 @@
+@if (isDev) {
+  <button
+    type="button"
+    class="btn btn-sm btn-default"
+    (click)="reload()"
+    style="position: absolute; z-index: 1000; bottom: 5px; left: 5px"
+  >
+    <i [c8yIcon]="'refresh'"></i>
+  </button>
+
+  <pre>{{ config | json }}</pre>
+}
+
+@if (!isInPreviewMode && dashboardChild) {
+  <c8y-global-context-connector
+    [controls]="connectorControls"
+    [config]="contextConfig"
+    [dashboardChild]="dashboardChild"
+    [linked]="isLinkedToGlobal"
+    (configChange)="onContextChange($event)"
+    (linkedChange)="config.widgetInstanceGlobalTimeContext = $event"
+  />
+}
+
+<div echarts class="chart" [options]="chartOptions"></div>

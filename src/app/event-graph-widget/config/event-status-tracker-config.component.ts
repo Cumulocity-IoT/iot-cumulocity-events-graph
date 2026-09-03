@@ -4,8 +4,8 @@ import { WidgetConfigService } from '@c8y/ngx-components/context-dashboard';
 import {
   EVENT_STATUS__BAR_SCALE_DEFAULT,
   EventStatusTrackerConfig,
-} from '../model/event-status-tracker';
-import { EventStatusTrackerComponent } from './event-status-tracker.component';
+} from '../../model/event-status-tracker';
+import { EventStatusTrackerComponent } from '../view/event-status-tracker.component';
 
 @Component({
   selector: 'c8y-event-status-config',
@@ -22,8 +22,6 @@ export class EventStatusTrackerWidgetConfig implements OnInit, DynamicComponent 
   @ViewChild('preview')
   set previewMapSet(template: TemplateRef<any>) {
     if (template) {
-      this.config.widgetInstanceGlobalTimeContext = true;
-      this.config.canDecoupleGlobalTimeContext = true;
       this.widgetConfigService.setPreview(template);
       return;
     }
@@ -33,8 +31,5 @@ export class EventStatusTrackerWidgetConfig implements OnInit, DynamicComponent 
   ngOnInit() {
     if (!this.config.barScale) this.config.barScale = EVENT_STATUS__BAR_SCALE_DEFAULT;
     if (!this.config.splitLines) this.config.splitLines = false;
-
-    this.config.widgetInstanceGlobalTimeContext = true;
-    this.config.canDecoupleGlobalTimeContext = true;
   }
 }
